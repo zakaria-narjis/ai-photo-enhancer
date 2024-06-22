@@ -48,10 +48,12 @@ class AdjustContrast():
 
     def __call__(self, list_editted, parameters):
         editted = list_editted[0]
+        print(editted.shape)
         mean = editted.mean()
         editted_ = (editted-mean)*(parameters[0]+1)+mean
         editted_ = relu(editted_)
         editted_ = 1-relu(1-editted_)
+        print(editted_.shape)
         return [editted_]
 
 class AdjustDehaze():
