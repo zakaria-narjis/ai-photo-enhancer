@@ -14,7 +14,7 @@ default_aug = test_augmentation = transforms.Compose([
    
         ])
 # torch.inference_mode():
-class PhotoEnhancementDataset():
+class PhotoEnhancementDataset(Dataset):
     def __init__(self, mode="train", transform = default_aug):
        self.SOURCE_IMGS_PATH = "./fivek_dataset/trainSource.txt"
        self.TARGET_IMGS_PATH = "./fivek_dataset/trainTarget.txt"
