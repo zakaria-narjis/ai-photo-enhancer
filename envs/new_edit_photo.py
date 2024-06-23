@@ -7,6 +7,9 @@ try:
 except:
     from dehaze.src import dehaze
 
+def numpy_sigmoid(x):
+    return 1/(1+np.exp(-x))
+
 def sigmoid_inverse(y):
     epsilon = 10**(-3)
     y = F.relu(y-epsilon)+epsilon
@@ -15,6 +18,16 @@ def sigmoid_inverse(y):
     output = -np.log(y.numpy())
     return torch.tensor(output)
 
+class SigmoidInverse():
+
+    def __init__(self):
+        self.num_parameters = 0
+
+    def __call__(self, images):
+        return sigmoid_inverse(images)
+    
+
+new_sig_inv = SigmoidInverse()
 
 class AdjustContrast():
     def __init__(self):
@@ -23,6 +36,10 @@ class AdjustContrast():
         self.slider_names = ["contrast"]
 
     def __call__(self, images:torch.Tensor, parameters:torch.Tensor):
+
+        assert images.dim()==4
+        assert images.shape[0]==parameters.shape[0]
+
         batch_size = parameters.shape[0]
         mean = images.view(batch_size,-1).mean(1)
         mean = mean.view(batch_size, 1, 1, 1)
@@ -93,4 +110,56 @@ class AdjustDehaze():
             output = torch.stack(output) 
             editted_images = images + (images-output) * clarity
             
-            return editted_images
+            return editted_images      
+class AdjustExposure():
+    def __init__(self):
+        self.num_parameters = 1
+        self.window_names = ["parameter"]
+        self.slider_names = ["exposure"]
+
+    def __call__(self, images, parameters):
+        batch_size = parameters.shape[0]
+        exposure = parameters.view(batch_size, 1, 1, 1)
+        output = images+exposure*5
+        return output
+
+class AdjustTemp():
+    def __init__(self):
+        self.num_parameters = 1
+        self.window_names = ["parameter"]
+        self.slider_names = ["temp"]
+
+    def __call__(self, images, parameters):
+        batch_size = parameters.shape[0]
+        temp = parameters.view(batch_size, 1, 1, 1)
+        editted = torch.clone(images)  
+
+        index_high = (temp>0).view(-1)
+        index_low = (temp<=0).view(-1)
+
+        editted[index_high,:,:,1] += temp[index_high,:,:,0]*1.6
+        editted[index_high,:,:,2] += temp[index_high,:,:,0]*2   
+        editted[index_low,:,:,0] -= temp[index_low,:,:,0]*2.0
+        editted[index_low,:,:,1] -= temp[index_low,:,:,0]*1.0          
+
+        return editted
+class AdjustShadows:
+    def __init__(self):
+        self.num_parameters = 1
+        self.window_names = ["parameter"]
+        self.slider_names = ["shadows"]
+    
+    def __call__(self, list_hsv, parameters):
+        batch_size = parameters.shape[0]
+        shadows = parameters.view(batch_size, 1, 1).numpy()
+
+        v = list_hsv[2].numpy()
+        
+        # Calculate shadows mask
+
+        shadows_mask = 1 - numpy_sigmoid((v - 0.0) * 5.0)
+        # Adjust v channel based on shadows mask
+        adjusted_v = v * (1 + shadows_mask * shadows * 5.0)
+        adjusted_v = torch.tensor(adjusted_v)
+
+        return [list_hsv[0], list_hsv[1], adjusted_v]
