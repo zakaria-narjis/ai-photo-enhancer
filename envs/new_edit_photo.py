@@ -208,3 +208,23 @@ class AdjustBlacks:
         adjusted_v = v + (1 - v) * adjustment_factor
 
         return [list_hsv[0], list_hsv[1], adjusted_v]
+
+class AdjustWhites:
+    def __init__(self):
+        self.num_parameters = 1
+        self.window_names = ["parameter"]
+        self.slider_names = ["whites"]
+
+    def __call__(self, list_hsv, parameters):
+        batch_size = parameters.shape[0]
+        whites= parameters.view(batch_size, 1, 1)
+        whites= whites=+ 1
+        v = list_hsv[2]
+        
+        # Calculate the adjustment factor
+        adjustment_factor = (torch.sqrt(whites) - 1) * 0.2
+        
+        # Adjust the v channel
+        adjusted_v = v + v * adjustment_factor
+
+        return [list_hsv[0], list_hsv[1], adjusted_v]
