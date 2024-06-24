@@ -1,13 +1,14 @@
 import torch
 import numpy as np
 import torch.nn.functional as F
+import cv2
 try:
     from .dehaze.src import dehaze
 except:
     from dehaze.src import dehaze
 
-def numpy_sigmoid(x):
-    return 1/(1+np.exp(-x))
+# def numpy_sigmoid(x):
+#     return 1/(1+np.exp(-x))
 
 def sigmoid_inverse(y):
     epsilon = 10**(-3)
@@ -16,7 +17,11 @@ def sigmoid_inverse(y):
     y = (1/y)-1
     output = -np.log(y.numpy())
     return torch.tensor(output)
-
+class Sigmoid():
+    def __init__(self):
+        self.num_parameters = 0
+    def __call__(self,images):
+        return torch.sigmoid(images)
 class SigmoidInverse():
 
     def __init__(self):
@@ -75,41 +80,43 @@ class AdjustDehaze():
             editted= dehaze.DarkPriorChannelDehaze(
                 wsize=int(15*scale), radius=int(80*scale), omega=omega,
                 t_min=0.25, refine=True)(image * 255.0) / 255.0
+            editted = torch.tensor(editted)
             editted = F.relu(editted)
             editted= 1-F.relu(1-editted)
-            output.append(torch.tensor(editted))
+            output.append(editted)
         output = torch.stack(output)
         return output
     
-    class AdjustClarity():
-        def __init__(self):
-            self.num_parameters = 1
-            self.window_names = ["parameter"]
-            self.slider_names = ["clarity"]
+class AdjustClarity():
+    def __init__(self):
+        self.num_parameters = 1
+        self.window_names = ["parameter"]
+        self.slider_names = ["clarity"]
 
-        def __call__(self, images, parameters):
-            """
-            Takes a batch of images where B (the last dim) is the batch size
-            args:
-                images: torch.Tensor # B H W C 
-                parameters :torch.Tensor # N
-            return:
-                output: torch.Tensor #  B H W C 
-            """
-            assert images.dim()==4
-            batch_size = parameters.shape[0]
-            output = [] 
-            clarity = parameters.view(batch_size, 1, 1, 1)
-            for image in images: 
-                input = image.numpy()      
-                scale = max((input.shape[:2])) / 512.0
-                unsharped = cv2.bilateralFilter((input*255.0).astype(np.uint8),
-                                                    int(32*scale), 50, 10*scale)/255.0
-                output.append(torch.tensor(unsharped))
-            output = torch.stack(output) 
-            editted_images = images + (images-output) * clarity
-            
-            return editted_images      
+    def __call__(self, images, parameters):
+        """
+        Takes a batch of images where B (the last dim) is the batch size
+        args:
+            images: torch.Tensor # B H W C 
+            parameters :torch.Tensor # N
+        return:
+            output: torch.Tensor #  B H W C 
+        """
+        assert images.dim()==4
+        batch_size = parameters.shape[0]
+        output = [] 
+        clarity = parameters.view(batch_size, 1, 1, 1)
+        for image in images: 
+            input = image.numpy()      
+            scale = max((input.shape[:2])) / 512.0
+            unsharped = cv2.bilateralFilter((input*255.0).astype(np.uint8),
+                                                int(32*scale), 50, 10*scale)/255.0
+            output.append(torch.tensor(unsharped))
+        output = torch.stack(output) 
+        editted_images = images + (images-output) * clarity
+        
+        return editted_images     
+     
 class AdjustExposure():
     def __init__(self):
         self.num_parameters = 1
@@ -142,6 +149,26 @@ class AdjustTemp():
         editted[index_low,:,:,1] -= temp[index_low,:,:,0]*1.0          
 
         return editted
+class AdjustTint():
+    def __init__(self):
+        self.num_parameters = 1
+        self.window_names = ["parameter"]
+        self.slider_names = ["tint"]
+
+    def __call__(self, images, parameters):
+        batch_size = parameters.shape[0]
+        tint = parameters.view(batch_size, 1, 1, 1)
+        editted = torch.clone(images)  
+
+        index_high = (tint>0).view(-1)
+        index_low = (tint<=0).view(-1)
+
+        editted[index_high,:,:,0] += tint[index_high,:,:,0]*2
+        editted[index_high,:,:,2] += tint[index_high,:,:,0]*1  
+        editted[index_low,:,:,1] -= tint[index_low,:,:,0]*2
+        editted[index_low,:,:,2] -= tint[index_low,:,:,0]*1         
+
+        return editted
 class AdjustShadows:
     def __init__(self):
         self.num_parameters = 1
@@ -150,16 +177,15 @@ class AdjustShadows:
     
     def __call__(self, list_hsv, parameters):
         batch_size = parameters.shape[0]
-        shadows = parameters.view(batch_size, 1, 1).numpy()
+        shadows = parameters.view(batch_size, 1, 1)
 
-        v = list_hsv[2].numpy()
+        v = list_hsv[2]
         
         # Calculate shadows mask
 
-        shadows_mask = 1 - numpy_sigmoid((v - 0.0) * 5.0)
+        shadows_mask = 1 - torch.sigmoid((v - 0.0) * 5.0)
         # Adjust v channel based on shadows mask
         adjusted_v = v * (1 + shadows_mask * shadows * 5.0)
-        adjusted_v = torch.tensor(adjusted_v)
 
         return [list_hsv[0], list_hsv[1], adjusted_v]
 
@@ -216,7 +242,7 @@ class AdjustWhites:
     def __call__(self, list_hsv, parameters):
         batch_size = parameters.shape[0]
         whites= parameters.view(batch_size, 1, 1)
-        whites= whites=+ 1
+        whites= whites+ 1
         v = list_hsv[2]
         
         # Calculate the adjustment factor
@@ -231,7 +257,7 @@ class Bgr2Hsv:
     def __init__(self):
         self.num_parameters = 0
 
-    def __call__(self, images ,parameters=None):
+    def __call__(self, images):
         editted = images
 
         max_bgr, _ = editted.max(dim=-1, keepdim=True)
@@ -303,7 +329,7 @@ class Hsv2Bgr:
     def __init__(self):
         self.num_parameters = 0
 
-    def __call__(self, list_hsv, parameters):
+    def __call__(self, list_hsv):
         h, s, v = list_hsv
         
         # Adjust h values
@@ -337,7 +363,7 @@ class Srgb2Photopro:
     def __init__(self):
         self.num_parameters = 0
 
-    def __call__(self, images, parameters):
+    def __call__(self, images):
         srgb = images.clone() 
         k = 0.055
         thre_srgb = 0.04045
@@ -375,7 +401,7 @@ class Photopro2Srgb:
     def __init__(self):
         self.num_parameters = 0
 
-    def __call__(self, photopro_tensor, parameters):
+    def __call__(self, photopro_tensor):
         photopro = photopro_tensor.clone()  # Make a copy to avoid modifying the input tensor
         thre_photopro = 1/512.0*16
 
@@ -413,3 +439,27 @@ class Photopro2Srgb:
         srgb[~mask] *= 12.92
 
         return srgb
+    
+class PhotoEditor():
+    def __init__(self):
+        self.edit_funcs = [Srgb2Photopro(), AdjustDehaze(), AdjustClarity(), AdjustContrast(),
+                SigmoidInverse(), AdjustExposure(), AdjustTemp(), AdjustTint(),
+                Sigmoid(), Bgr2Hsv(), AdjustWhites(), AdjustBlacks(), AdjustHighlights(),
+                AdjustShadows(), AdjustVibrance(), AdjustSaturation(), Hsv2Bgr(), Photopro2Srgb()]
+
+        self.num_parameters = 0
+        for edit_func in self.edit_funcs:
+            self.num_parameters += edit_func.num_parameters
+
+    def __call__(self, images, parameters):
+        editted_images = images.clone()
+        num_parameters = 0
+        for edit_func in self.edit_funcs:
+            if edit_func.num_parameters == 0:
+                editted_images = edit_func(editted_images)              
+            else:
+                editted_images = edit_func(editted_images,
+                    parameters[:,num_parameters : num_parameters + edit_func.num_parameters])
+            num_parameters = num_parameters + edit_func.num_parameters
+
+        return editted_images
