@@ -15,8 +15,8 @@ def sigmoid_inverse(y):
     y = F.relu(y-epsilon)+epsilon
     y = 1-epsilon-F.relu((1-epsilon)-y)
     y = (1/y)-1
-    output = -np.log(y.numpy())
-    return torch.tensor(output)
+    output = -torch.log(y)
+    return output
 class Sigmoid():
     def __init__(self):
         self.num_parameters = 0
