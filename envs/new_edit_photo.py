@@ -163,3 +163,48 @@ class AdjustShadows:
         adjusted_v = torch.tensor(adjusted_v)
 
         return [list_hsv[0], list_hsv[1], adjusted_v]
+
+class AdjustHighlights: # I should change the sigmoid to torch.sigmoid
+    def __init__(self):
+        self.num_parameters = 1
+        self.window_names = ["parameter"]
+        self.slider_names = ["highlights"]
+
+    def custom_sigmoid(self, x):
+        return 1 / (1 + torch.exp(-x))
+
+    def __call__(self, list_hsv, parameters):
+        batch_size = parameters.shape[0]
+        highlights = parameters.view(batch_size, 1, 1).numpy()
+   
+        v = list_hsv[2].numpy()
+        
+        # Calculate highlights mask using custom sigmoid function
+        highlights_mask = numpy_sigmoid((v - 1) * 5)
+        
+        # Adjust v channel based on highlights mask
+        adjusted_v = 1 - (1 - v) * (1 - highlights_mask * highlights * 5)
+        adjusted_v = torch.tensor(adjusted_v)
+        
+        return [list_hsv[0], list_hsv[1], adjusted_v]
+    
+
+class AdjustBlacks:
+    def __init__(self):
+        self.num_parameters = 1
+        self.window_names = ["parameter"]
+        self.slider_names = ["blacks"]
+
+    def __call__(self, list_hsv, parameters):
+        batch_size = parameters.shape[0]
+        blacks = parameters.view(batch_size, 1, 1)
+        blacks = blacks + 1
+        v = list_hsv[2]
+        
+        # Calculate the adjustment factor
+        adjustment_factor = (torch.sqrt(blacks) - 1) * 0.2
+        
+        # Adjust the v channel
+        adjusted_v = v + (1 - v) * adjustment_factor
+
+        return [list_hsv[0], list_hsv[1], adjusted_v]
