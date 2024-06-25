@@ -9,15 +9,18 @@ from torchvision.io import read_image
 
 IMG_SIZE = 64 #training image size
 
-default_aug = test_augmentation = transforms.Compose([
+default_aug = transforms.Compose([
             transforms.Resize(size = IMG_SIZE, interpolation=transforms.InterpolationMode.BICUBIC),
-   
         ])
 # torch.inference_mode():
 class PhotoEnhancementDataset(Dataset):
+    """
+    A dataset that reads Adobe5K dataset images
+    output : tensor of unprocessed images
+    """
     def __init__(self, mode="train", transform = default_aug):
-       self.SOURCE_IMGS_PATH = "./fivek_dataset/trainSource.txt"
-       self.TARGET_IMGS_PATH = "./fivek_dataset/trainTarget.txt"
+       self.SOURCE_IMGS_PATH = "./dataset/trainSource_jpg.txt"
+       self.TARGET_IMGS_PATH = "./dataset/trainTarget_jpg.txt"
        self.transform = transform 
        with open(self.SOURCE_IMGS_PATH ) as file:
            content = file.read() 
@@ -33,8 +36,8 @@ class PhotoEnhancementDataset(Dataset):
     def __getitem__(self,idx):
         source_path = self.source_files[idx]
         target_path = self.target_files[idx]
-        img = self.transform(read_image(source_path))/
-        target = self.transform(read_image(target_path))
+        img = read_image(source_path)
+        target = read_image(target_path)
 
         return img, target 
 
