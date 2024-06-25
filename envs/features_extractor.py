@@ -24,7 +24,6 @@ class ResnetEncoder(Extractor):
         self.model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True).to(self.device)
         self.model.eval()
         self.preprocess = transforms.Compose([
-    transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
         self.device = DEVICE 
@@ -36,7 +35,8 @@ class ResnetEncoder(Extractor):
         assert images.shape[1]==3
         assert images.dtype() == torch.float32
 
-        output = images.clone().to(self.device)
+        output = images.clone().to(self.device)/255.0
+        output = self.preprocess(output)
         output = self.model(output)
         output = torch.flatten(output)
 

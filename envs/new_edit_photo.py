@@ -454,6 +454,10 @@ class PhotoEditor():
     def __call__(self, images, parameters):
         editted_images = images.clone()
         num_parameters = 0
+
+        assert images.shape[-1]==3 #make sure that the image shape is (B,H,W,C)
+        assert images.dim()==4
+
         for edit_func in self.edit_funcs:
             if edit_func.num_parameters == 0:
                 editted_images = edit_func(editted_images)              
