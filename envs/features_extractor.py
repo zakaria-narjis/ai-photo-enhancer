@@ -2,7 +2,7 @@ import torch
 from torchvision import transforms
 
 
-DEVICE = 'cpu'
+DEVICE = 'cuda'
 
 class Extractor:
     """
@@ -34,10 +34,10 @@ class ResnetEncoder(Extractor):
         assert images.dim()==4
         assert images.shape[1]==3
         assert images.dtype() == torch.float32
-
-        output = images.clone().to(self.device)/255.0
-        output = self.preprocess(output)
-        output = self.model(output)
-        output = torch.flatten(output)
+        with torch.inference_mode():
+            output = images.clone().to(self.device)/255.0
+            output = self.preprocess(output)
+            output = self.model(output)
+            output = torch.flatten(output)
 
         return output
