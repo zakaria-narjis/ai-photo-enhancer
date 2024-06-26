@@ -3,12 +3,14 @@ from gymnasium import spaces
 import numpy as np
 import logging
 import os
-from edit_photo import PhotoEditor
+from .new_edit_photo import PhotoEditor
+from .env_dataloader import create_dataloaders
+import torch
 
 
-DATASET_DIR = "./dataset/"
-TARGET_DIR = "expertC/"
-ORIGINAL_DIR = "original/"
+# DATASET_DIR = "./dataset/"
+# TARGET_DIR = "expertC/"
+# ORIGINAL_DIR = "original/"
 
 
 class PhotoEnhancementEnv(gym.Env):
@@ -18,43 +20,115 @@ class PhotoEnhancementEnv(gym.Env):
     def __init__(self,
                     batch_size,
                     logger=None,
-                    imsize=512,
+                    imsize=64,
                     max_episode_steps=10,
-                    training_mode=True):
+                    training_mode=True,
+                    pre_encode = True):
             super().__init__()
+
+
             self.tags = {'max_episode_steps': max_episode_steps}
             self.logger = logger or logging.getLogger(__name__)
             self.imsize = imsize
             self.batch_size = batch_size
             self.training_mode = training_mode
-            try:
-                self.file_names
-            except:
-                self.file_names = []
-                with open(os.path.join(DATASET_DIR, "trainSource_jgp.txt")) as f:
-                    s = f.read()
-                self.file_names.extend(s.split("\n")[:-1])
-                self.file_names = \
-                    list(map(lambda x: os.path.join(DATASET_DIR, ORIGINAL_DIR, x), self.file_names))
+            self.pre_encode = pre_encode
+
+            self.train_dataloader, self.test_dataloader = create_dataloaders(self.pre_encode)
+
             self.photo_editor = PhotoEditor()
             self.num_parameters = self.photo_editor.num_parameters
+
+            self.inter_dataloader_count = 0 #counts number of batch of samples seen by the agent
+            self.iter_dataloader = iter(self.train_dataloader) #iterator over the dataloader 
+
             self.action_space = spaces.Dict({
             'parameters':
             spaces.Box(low=-1.0, high=1.0,
-                            shape=(self.batch_size, self.num_parameters), dtype=np.float32),
+                            shape=(self.batch_size, self.num_parameters), dtype=torch.float32),
         })
-            self.observation_space = spaces.Dict({
-            'image':
-            spaces.Box(low=0,
-                       high=255,
-                       shape=(self.batch_size, self.imsize, self.imsize, 3),
-                       dtype=np.uint8),
-            'enhanced_image':spaces.Box(low=0,
-                       high=255,
-                       shape=(self.batch_size, self.imsize, self.imsize, 3),
-                       dtype=np.uint8)
-        }
-        )
-    
+            if self.pre_encode == True:
+                self.observation_space = spaces.Dict({
+                     
+                'encoded_source':
+                spaces.Box(low=-torch.inf,
+                        high=+torch.inf,
+                        shape=(self.batch_size, self.train.dataset.encoded_source.shape[1]),
+                        dtype=np.uint8),
+
+                'encoded_image':spaces.Box(low=-torch.inf,
+                        high=+torch.inf,
+                        shape=(self.batch_size, self.train.dataset.encoded_source.shape[1]),
+                        dtype=torch.uint8),
+                
+                'source_image':spaces.Box(low=0,
+                            high=255,
+                            shape=(self.batch_size, 3, self.imsize, self.imsize),
+                            dtype=np.uint8),
+                'target_image':spaces.Box(low=0,
+                            high=255,
+                            shape=(self.batch_size, 3, self.imsize, self.imsize),
+                            dtype=np.uint8)      
+            }
+            )
+                
+            else:
+
+                self.observation_space = spaces.Dict({
+                'image':
+                spaces.Box(low=0,
+                        high=255,
+                        shape=(self.batch_size, 3, self.imsize, self.imsize),
+                        dtype=np.uint8),
+
+                'enhanced_image':spaces.Box(low=0,
+                        high=255,
+                        shape=(self.batch_size, 3, self.imsize, self.imsize),
+                        dtype=torch.uint8)
+            }
+            )
+            self.state = None #Batch of images (B,3,H,W) that correspond to the agent state each image can be seen as a sub state in a sub env   
+            self.action = None # Batch of actions  (B,N_params)
+            self.reset()    
+
+    def reset_data_iterator(self,):
+         self.iter_dataloader = iter(self.train_dataloader)
+
     def reset (self):
-         
+        self.logger.debug('reset the drawn picture')
+        if self.iter_dataloader_count == len(self.iter_dataloader):
+            self.reset_data_iterator()
+        if self.pre_encode:    
+            source_image,target_image,encoded_source,encoded_target = next(self.iter_dataloader) 
+            observation = {               
+                'encoded_source':encoded_source,
+                'encoded_image':encoded_target,           
+                'source_image':source_image,
+                'target_image':target_image     
+            }
+
+
+        else:
+            source_image,target_image = next(self.iter_dataloader) 
+            observation = {                     
+                'source_image':source_image,
+                'target_image':target_image     
+            }
+        self.state = observation
+        return observation
+    
+    def step(self,batch_action:torch.Tensor):
+        """
+        args:
+            batch_action: torch.Tensor with shape (B,N_params) where N_paramas is the number of photo enhancing paramters (N_params = self.num_parameters)
+
+        return:
+            observation: Batch observation tensor with shape(B,3,H,W)
+            reward : Batch reward tensor with shape (B,)
+            done: Bool True if the agent reached acceptable performance False not yet
+            info : dict information 
+        """
+        
+        info ={} #not used
+
+
