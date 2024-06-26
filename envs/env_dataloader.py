@@ -3,10 +3,11 @@ from torch.utils.data import Dataset
 import torch
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
-from tqdm import tqdm
+from tqdm.notebook import tqdm
+from .features_extractor import ResnetEncoder
 
 BATCH_SIZE = 64
-ENCODING_BATCH_SIZE = 1024
+ENCODING_BATCH_SIZE = 128
 IMG_SIZE = 64 #training image size
 
 default_aug = transforms.Compose([
@@ -24,17 +25,18 @@ class PhotoEnhancement(Dataset):
         self.img_dataset = FiveKDataset(mode=mode)
         self.img_dataloader = DataLoader(self.img_dataset , batch_size=ENCODING_BATCH_SIZE, shuffle=False)
         self.transform = transform
+        self.encoder = ResnetEncoder()
         #Encoding imgs
         self.encoded_source = []
         self.encoded_target  = []
         print(f'Encoding {mode}ing data ...')
-        for source,target in tqdm(self.img_dataloader):
-            print('start')
-            self.encoded_source.append(source)
-            self.encoded_target.append(target)
-            print('end')
-        self.encoded_source = torch.cat(self.encoded_source).cpu()
-        self.encoded_target = torch.cat(self.encoded_target).cpu()
+        for source,target in self.img_dataloader:
+            # self.encoded_source.append(self.encoder.encode(source).cpu())
+            # self.encoded_target.append(self.encoder.encode(target).cpu())
+            self.encoded_source.append(source.cpu())
+        print('finished...')    
+        self.encoded_source = torch.cat(self.encoded_source)
+        self.encoded_target = torch.cat(self.encoded_target)
 
 
     def __len__(self,):
