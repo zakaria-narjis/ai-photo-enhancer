@@ -22,7 +22,8 @@ class ResnetEncoder(Extractor):
     def __init__(self,):
         super().__init__()
         self.device = DEVICE 
-        self.model = models.resnet18(weights='ResNet18_Weights.DEFAULT').to(self.device)
+        self.model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        self.model = torch.nn.Sequential(*(list(self.model.children())[:-1])).to(self.device) #remove classifier
         self.model.eval()
         self.preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -38,6 +39,5 @@ class ResnetEncoder(Extractor):
             output = images.clone().to(self.device)/255.0
             output = self.preprocess(output)
             output = self.model(output)
-            output = torch.flatten(output)
-
+            output = torch.flatten(output,start_dim=-3,end_dim=-1)
         return output
