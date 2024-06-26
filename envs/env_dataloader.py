@@ -30,10 +30,9 @@ class PhotoEnhancement(Dataset):
         self.encoded_source = []
         self.encoded_target  = []
         print(f'Encoding {mode}ing data ...')
-        for source,target in self.img_dataloader:
-            # self.encoded_source.append(self.encoder.encode(source).cpu())
-            # self.encoded_target.append(self.encoder.encode(target).cpu())
-            self.encoded_source.append(source.cpu())
+        for source,target in tqdm(self.img_dataloader):
+            self.encoded_source.append(self.encoder.encode(source).cpu())
+            self.encoded_target.append(self.encoder.encode(target).cpu())
         print('finished...')    
         self.encoded_source = torch.cat(self.encoded_source)
         self.encoded_target = torch.cat(self.encoded_target)
