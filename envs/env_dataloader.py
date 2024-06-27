@@ -14,6 +14,7 @@ IMG_SIZE = 64 #training image size
 #             transforms.Resize(size = (IMG_SIZE,IMG_SIZE) , interpolation=transforms.InterpolationMode.BICUBIC),
 #         ])
 
+image_encoder = ResnetEncoder()
 
 class PhotoEnhancement(Dataset):
     """
@@ -24,7 +25,6 @@ class PhotoEnhancement(Dataset):
         super().__init__()
         self.img_dataset = FiveKDataset(mode=mode)
         self.img_dataloader = DataLoader(self.img_dataset , batch_size=ENCODING_BATCH_SIZE, shuffle=False)
-        self.encoder = ResnetEncoder()
         self.pre_encode = pre_encode
         if self.pre_encode == True:
         #Encoding imgs
@@ -32,8 +32,8 @@ class PhotoEnhancement(Dataset):
             self.encoded_target  = []
             print(f'Encoding {mode}ing data ...')
             for source,target in tqdm(self.img_dataloader):
-                self.encoded_source.append(self.encoder.encode(source).cpu())
-                self.encoded_target.append(self.encoder.encode(target).cpu())
+                self.encoded_source.append(image_encoder.encode(source).cpu())
+                self.encoded_target.append(image_encoder.encode(target).cpu())
             print('finished...')   
             self.encoded_source = torch.cat(self.encoded_source)
             self.encoded_target = torch.cat(self.encoded_target)
