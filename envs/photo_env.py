@@ -25,15 +25,12 @@ class PhotoEnhancementEnv(gym.Env):
                     batch_size,
                     logger=None,
                     imsize=64,
-                    max_episode_steps=10,
                     training_mode=True,
                     pre_encode = True,
                     done_threshold = THRESHOLD
                     ):
             super().__init__()
 
-
-            self.tags = {'max_episode_steps': max_episode_steps}
             self.logger = logger or logging.getLogger(__name__)
             self.imsize = imsize
             self.batch_size = batch_size
@@ -99,13 +96,16 @@ class PhotoEnhancementEnv(gym.Env):
             self.reset()    
 
     def reset_data_iterator(self,):
-         self.iter_dataloader = iter(self.train_dataloader)
+        """
+            Reset dataloader when the agent went through the whole samples
+        """
+        self.iter_dataloader = iter(self.train_dataloader)
 
     def reset (self):
         self.logger.debug('reset the drawn picture')
         if self.iter_dataloader_count == len(self.iter_dataloader):
             self.reset_data_iterator()
-            
+            self.inter_dataloader_count = 0
 
         if self.pre_encode:    
             source_image,target_images,encoded_source,encoded_target = next(self.iter_dataloader) 
