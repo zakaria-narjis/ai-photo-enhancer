@@ -15,6 +15,7 @@ from .features_extractor import ResnetEncoder
 
 
 image_encoder = ResnetEncoder()
+train_dataloader,test_dataloader = create_dataloaders(pre_encode=True)
 
 THRESHOLD = -0.01
 class PhotoEnhancementEnv(gym.Env):
@@ -26,8 +27,8 @@ class PhotoEnhancementEnv(gym.Env):
                     logger=None,
                     imsize=64,
                     training_mode=True,
-                    pre_encode = True,
-                    done_threshold = THRESHOLD
+                    done_threshold = THRESHOLD,
+                    dataloader = train_dataloader
                     ):
             super().__init__()
 
@@ -35,9 +36,8 @@ class PhotoEnhancementEnv(gym.Env):
             self.imsize = imsize
             self.batch_size = batch_size
             self.training_mode = training_mode
-            self.pre_encode = pre_encode
 
-            self.train_dataloader, self.test_dataloader = create_dataloaders(self.pre_encode)
+            self.train_dataloader = dataloader
 
             self.photo_editor = PhotoEditor()
             self.num_parameters = self.photo_editor.num_parameters
@@ -190,7 +190,7 @@ class PhotoEnhancementEnv(gym.Env):
         self.state['encoded_source'] = encoded_enhanced_image[self.sub_env_running,...] 
 
         self.target_images = self.target_images[self.sub_env_running,...]
-
+        self.encoded_target = self.encoded_target[self.sub_env_running,...]
 
         info ={} #not used
         next_state = self.state
