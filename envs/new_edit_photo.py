@@ -107,7 +107,7 @@ class AdjustClarity():
         output = [] 
         clarity = parameters.view(batch_size, 1, 1, 1)
         for image in images: 
-            input = image.numpy()      
+            input = image.numpy()   
             scale = max((input.shape[:2])) / 512.0
             unsharped = cv2.bilateralFilter((input*255.0).astype(np.uint8),
                                                 int(32*scale), 50, 10*scale)/255.0
@@ -465,5 +465,7 @@ class PhotoEditor():
                 editted_images = edit_func(editted_images,
                     parameters[:,num_parameters : num_parameters + edit_func.num_parameters])
             num_parameters = num_parameters + edit_func.num_parameters
+
+        editted_images = editted_images.type(torch.float32)
 
         return editted_images
