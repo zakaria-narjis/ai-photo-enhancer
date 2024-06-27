@@ -93,6 +93,7 @@ class PhotoEnhancementEnv(gym.Env):
             self.state = None #Batch of images (B,3,H,W) that correspond to the agent state each image can be seen as a sub state in a sub env   
             self.action = None # Batch of actions  (B,N_params)
             self.done = None # Batch of Bool that state wether the the sub env (images) reached the best enhacement
+            self.sub_env_running = torch.Tensor([index for index in range(self.batch_size)])
             self.reset()    
 
     def reset_data_iterator(self,):
@@ -141,13 +142,17 @@ class PhotoEnhancementEnv(gym.Env):
 
     def check_done(rewards:torch.Tensor,threshold:float):
         """
-        Function that check if the enhanced image reached a certain minium threshold of enhancement
+        Function that check if the enhanced image reached a certain minium threshold of enhancement. Mainly used for marking the end of enhancement of the image
             args: 
                 rewards: tensor of batch rewards
                 threshold: minimum threshold of enhaancement should be a value<0 for the case of rmse
+            return:
+                tensor of bool 
         """
-        return rewards>threshold
-    def step(self,batch_action:torch.Tensor):
+        return (rewards>threshold)
+    
+
+    def step(self,batch_actions:torch.Tensor):
         """
         args:
             batch_action: torch.Tensor with shape (B,N_params) where N_paramas is the number of photo enhancing paramters (N_params = self.num_parameters)
@@ -155,12 +160,20 @@ class PhotoEnhancementEnv(gym.Env):
         return:
             observation: Batch observation tensor with shape(B,3,H,W)
             reward : Batch reward tensor with shape (B,)
-            done: Bool True if the agent reached acceptable performance False not yet
+            done: list of Bool True if the agent reached acceptable performance False not yet
             info : dict information 
         """
-        next_state = self.photo_editor(self.state,batch_action)
+        actual_states = self.state[self.sub_env_running,...]
+        actions = batch_actions[self.sub_env_running,...]
+
+        next_state = self.photo_editor(actual_states,actions)
         rewards = self.compute_rewards(self.state,next_state)
-        done = self.check_done(rewards,self.done_threshold)
+        done  = self.check_done(rewards,self.done_threshold)
+
+        running_sub_env_index = [not sub_env_state for sub_env_state in done]
+        self.sub_env_running = self.sub_env_running[running_sub_env_index] # tensor of indicies of running sub_envs(images that didn't reach the threshold in self.check_done)
+
+        self.state = next_state[self.sub_env_running,...]
         info ={} #not used
         return next_state, rewards, done
 
