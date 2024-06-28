@@ -94,7 +94,7 @@ class PhotoEnhancementEnv(gym.Env):
                         shape = self.dataloader.dataset.encoded_source.shape,
                         dtype = torch.float32)
                                                           
-                self.action_shape = Action_Space(
+                self.action_space = Action_Space(
                     high = 1,
                     low = -1,
                     shape = (self.batch_size,self.num_parameters),
