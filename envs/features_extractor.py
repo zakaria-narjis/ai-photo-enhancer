@@ -2,7 +2,7 @@ import torch
 from torchvision import transforms
 from torchvision import models
 
-DEVICE = 'cuda'
+ENCODING_DEVICE = 'cuda'
 
 class Extractor:
     """
@@ -21,7 +21,7 @@ class Extractor:
 class ResnetEncoder(Extractor):
     def __init__(self,):
         super().__init__()
-        self.device = DEVICE 
+        self.device = ENCODING_DEVICE
         self.model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
         self.model = torch.nn.Sequential(*(list(self.model.children())[:-1])).to(self.device) #remove classifier
         self.model.eval()

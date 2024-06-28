@@ -7,6 +7,7 @@ from .new_edit_photo import PhotoEditor
 from .env_dataloader import create_dataloaders
 import torch
 from .features_extractor import ResnetEncoder
+from typing import Any, Generic, Iterable, Mapping, Sequence, TypeVar
 
 # DATASET_DIR = "./dataset/"
 # TARGET_DIR = "expertC/"
@@ -20,6 +21,37 @@ TRAIN_BATCH_SIZE = 64
 
 image_encoder = ResnetEncoder()
 train_dataloader,test_dataloader = create_dataloaders(pre_encode=PRE_ENCODE)
+
+class Observation_Space:
+    
+    def __init__(self,
+                 shape:Sequence[int] | None = None,
+                 dtype: torch.dtype | None = None,
+                 ):
+
+        self._shape = None if shape is None else tuple(shape)
+        self.dtype = dtype
+
+    def shape(self,):
+        return self._shape
+    
+
+class Action_Space:
+
+    def __init__(self,
+                 high:float,
+                 low:float,
+                 shape:Sequence[int] | None = None,
+                 dtype: torch.dtype | None = None,
+                 ) -> None:
+        self._shape = None if shape is None else tuple(shape)
+        self.dtype = dtype
+        self.high = high
+        self.low = low
+
+    def shape(self,):
+        return self._shape
+    
 
 class PhotoEnhancementEnv(gym.Env):
     metadata = {
@@ -50,13 +82,29 @@ class PhotoEnhancementEnv(gym.Env):
             self.batch_size = batch_size
             self.training_mode = training_mode
             self.pre_encode = pre_encode
-            self.train_dataloader = dataloader
+            self.dataloader = dataloader
 
             self.photo_editor = PhotoEditor()
             self.num_parameters = self.photo_editor.num_parameters
 
             self.iter_dataloader_count = 0 #counts number of batch of samples seen by the agent
-            self.iter_dataloader = iter(self.train_dataloader) #iterator over the dataloader 
+            self.iter_dataloader = iter(self.dataloader) #iterator over the dataloader 
+            if self.pre_encode:
+                self.observation_space= Observation_Space(
+                        shape = self.dataloader.dataset.encoded_source.shape,
+                        dtype = torch.float32)
+                                                          
+                self.action_shape = Action_Space(
+                    high = 1,
+                    low = -1,
+                    shape = (self.batch_size,self.num_parameters),
+                    dtype = torch.float32
+                )
+            else:
+                """
+                    Not implemented yet
+                """
+                pass
 
         #     self.action_space = spaces.Dict({
         #     'parameters':
@@ -113,7 +161,7 @@ class PhotoEnhancementEnv(gym.Env):
             Reset dataloader when the agent went through the whole samples
         """
         self.logger.debug('reset dataloader')
-        self.iter_dataloader = iter(self.train_dataloader)
+        self.iter_dataloader = iter(self.dataloader)
 
     def reset (self):
         self.logger.debug('reset the episode')
@@ -181,11 +229,23 @@ class PhotoEnhancementEnv(gym.Env):
             batch_action: torch.Tensor with shape (B,N_params) where N_paramas is the number of photo enhancing paramters (N_params = self.num_parameters)
 
         return:
-            observation: Batch observation tensor with shape(B,3,H,W)
+            next_state(dict): {
+                source_image(Tensor): Batch of images with shape(B,3,H,W),
+                encoded_enhanced_image : Batch of encoded enhanced images (B,features_size)
+                encoded_source : Batch of encoded source images (B,features_size)
             reward : Batch reward tensor with shape (B,)
             done: list of Bool True if the agent reached acceptable performance False not yet
             info : dict information 
         """
+
+        #update state
+        self.state['source_image'] = torch.index_select(source_images,0,self.sub_env_running)
+        self.state['encoded_enhanced_image'] = torch.index_select(encoded_enhanced_image,0,self.sub_env_running)
+        self.state['encoded_source'] =torch.index_select(encoded_enhanced_image,0,self.sub_env_running)
+
+        self.target_images = torch.index_select(self.target_images,0,self.sub_env_running)
+        self.encoded_target = torch.index_select(self.encoded_target,0,self.sub_env_running)
+
         source_images = self.state['source_image']/255.0 # batch of images that have to be enhanced
         actions =  torch.index_select(batch_actions,0,self.sub_env_running)
 
@@ -198,15 +258,6 @@ class PhotoEnhancementEnv(gym.Env):
         running_sub_env_index = [not sub_env_state for sub_env_state in done]
         self.sub_env_running = self.sub_env_running[running_sub_env_index] # tensor of indicies of running sub_envs(images that didn't reach the threshold in self.check_done)
         
-
-        #update state
-        self.state['source_image'] = torch.index_select(source_images,0,self.sub_env_running)
-        self.state['encoded_enhanced_image'] = torch.index_select(encoded_enhanced_image,0,self.sub_env_running)
-        self.state['encoded_source'] =torch.index_select(encoded_enhanced_image,0,self.sub_env_running)
-
-        self.target_images = torch.index_select(self.target_images,0,self.sub_env_running)
-        self.encoded_target = torch.index_select(self.encoded_target,0,self.sub_env_running)
-
         info ={} #not used
         next_state = self.state
         # the whole episode should end when (done==True).all()
