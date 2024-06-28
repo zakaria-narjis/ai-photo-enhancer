@@ -32,7 +32,12 @@ class ResnetEncoder(Extractor):
 
         
     def encode(self,images:torch.Tensor)->torch.Tensor:
-
+        """
+            args:
+                image(torch.Tensor): Batch of images with shape (B,3,H,W) with uint8 values
+            return:
+                output(torch.Tensor): Batch of encoded images (images features) with shape(B,512)
+        """
         assert images.dim()==4
         assert images.shape[1]==3
         with torch.inference_mode():
