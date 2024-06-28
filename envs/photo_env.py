@@ -127,7 +127,7 @@ class PhotoEnhancementEnv(gym.Env):
             self.encoded_target = encoded_target
             self.sub_env_running = torch.Tensor([index for index in range(source_image.shape[0])]).to(torch.int32)
             observation = { 
-                'enhanced_encoded_image':encoded_source,              
+                'encoded_enhanced_image':encoded_source,              
                 'encoded_source':encoded_source,          
                 'source_image':source_image,   
             }
