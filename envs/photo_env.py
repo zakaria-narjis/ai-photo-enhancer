@@ -12,12 +12,15 @@ from .features_extractor import ResnetEncoder
 # TARGET_DIR = "expertC/"
 # ORIGINAL_DIR = "original/"
 PRE_ENCODE = True
+IMSIZE = 64
+THRESHOLD = -0.01
+TEST_BATCH_SIZE = 128
+TRAIN_BATCH_SIZE = 64
 
 
 image_encoder = ResnetEncoder()
 train_dataloader,test_dataloader = create_dataloaders(pre_encode=PRE_ENCODE)
 
-THRESHOLD = -0.01
 class PhotoEnhancementEnv(gym.Env):
     metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -25,14 +28,23 @@ class PhotoEnhancementEnv(gym.Env):
     def __init__(self,
                     batch_size,
                     logger=None,
-                    imsize=64,
+                    imsize=IMSIZE,
                     training_mode=True,
                     done_threshold = THRESHOLD,
                     dataloader = train_dataloader,
                     pre_encode = PRE_ENCODE
                     ):
             super().__init__()
-
+            """
+                Args:
+                    batch_size(int): number of sub environements (batch of images) to be enhanced
+                    logger(logger) : logger used
+                    imsize(int) : resized image size used for training and
+                    training_mode(bool): train mode
+                    done_threshold (bool): minimum threshold to considered an image enhanced 
+                    dataloader (torch.utils.data.Dataloder): images data loader
+                    pre_encode (bool): whether to encode the images or not
+            """
             self.logger = logger or logging.getLogger(__name__)
             self.imsize = imsize
             self.batch_size = batch_size
@@ -100,17 +112,18 @@ class PhotoEnhancementEnv(gym.Env):
         """
             Reset dataloader when the agent went through the whole samples
         """
+        self.logger.debug('reset dataloader')
         self.iter_dataloader = iter(self.train_dataloader)
 
     def reset (self):
-        self.logger.debug('reset the drawn picture')
+        self.logger.debug('reset the episode')
         if self.iter_dataloader_count == len(self.iter_dataloader):
             self.reset_data_iterator()
             self.iter_dataloader_count = 0
 
         if self.pre_encode:    
             source_image,target_images,encoded_source,encoded_target = next(self.iter_dataloader) 
-            self.target_images = target_images
+            self.target_images = target_images/255.0
             self.encoded_target = encoded_target
             self.sub_env_running = torch.Tensor([index for index in range(source_image.shape[0])]).to(torch.int32)
             observation = { 
@@ -173,7 +186,7 @@ class PhotoEnhancementEnv(gym.Env):
             done: list of Bool True if the agent reached acceptable performance False not yet
             info : dict information 
         """
-        source_images = self.state['source_image'] # batch of images that have to be enhanced
+        source_images = self.state['source_image']/255.0 # batch of images that have to be enhanced
         actions =  torch.index_select(batch_actions,0,self.sub_env_running)
 
         enhanced_image = self.photo_editor(source_images.permute(0,2,3,1),actions) #(B,H,W,3)
@@ -200,3 +213,15 @@ class PhotoEnhancementEnv(gym.Env):
         return next_state, rewards, done
 
 
+class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
+
+    def __init__(self,
+                 batch_size=TEST_BATCH_SIZE,
+                 logger=None,
+                 dataloader = test_dataloader,
+                 ):
+        super(PhotoEnhancementEnvTest,self).__init__(batch_size = batch_size,
+                                                 logger = logger,
+                                                 dataloader = dataloader,
+                                                 )
+    

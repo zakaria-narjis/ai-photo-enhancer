@@ -6,7 +6,8 @@ import torchvision.transforms as transforms
 from tqdm.notebook import tqdm
 from .features_extractor import ResnetEncoder
 
-BATCH_SIZE = 64
+TEST_BATCH_SIZE = 128
+TRAIN_BATCH_SIZE = 64
 ENCODING_BATCH_SIZE = 128
 IMG_SIZE = 64 #training image size
 
@@ -54,10 +55,10 @@ class PhotoEnhancement(Dataset):
             return source_image,target_image
     
 
-def create_dataloaders(pre_encode= True,batch_size=BATCH_SIZE,shuffle=True):
+def create_dataloaders(pre_encode= True,train_batch_size=TRAIN_BATCH_SIZE,test_batch_size = TEST_BATCH_SIZE ,shuffle=True):
     test_dataset = PhotoEnhancement(mode='test', pre_encode = pre_encode)
     train_dataset = PhotoEnhancement(mode='train',pre_encode=pre_encode) 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle = shuffle)
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle = shuffle)
+    train_dataloader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, shuffle = shuffle)
+    test_dataloader = DataLoader(test_dataset, batch_size=TEST_BATCH_SIZE, shuffle = shuffle)
 
     return train_dataloader,test_dataloader
