@@ -11,11 +11,11 @@ from .features_extractor import ResnetEncoder
 # DATASET_DIR = "./dataset/"
 # TARGET_DIR = "expertC/"
 # ORIGINAL_DIR = "original/"
-
+PRE_ENCODE = True
 
 
 image_encoder = ResnetEncoder()
-train_dataloader,test_dataloader = create_dataloaders(pre_encode=True)
+train_dataloader,test_dataloader = create_dataloaders(pre_encode=PRE_ENCODE)
 
 THRESHOLD = -0.01
 class PhotoEnhancementEnv(gym.Env):
@@ -28,7 +28,8 @@ class PhotoEnhancementEnv(gym.Env):
                     imsize=64,
                     training_mode=True,
                     done_threshold = THRESHOLD,
-                    dataloader = train_dataloader
+                    dataloader = train_dataloader,
+                    pre_encode = PRE_ENCODE
                     ):
             super().__init__()
 
@@ -36,56 +37,56 @@ class PhotoEnhancementEnv(gym.Env):
             self.imsize = imsize
             self.batch_size = batch_size
             self.training_mode = training_mode
-
+            self.pre_encode = pre_encode
             self.train_dataloader = dataloader
 
             self.photo_editor = PhotoEditor()
             self.num_parameters = self.photo_editor.num_parameters
 
-            self.inter_dataloader_count = 0 #counts number of batch of samples seen by the agent
+            self.iter_dataloader_count = 0 #counts number of batch of samples seen by the agent
             self.iter_dataloader = iter(self.train_dataloader) #iterator over the dataloader 
 
-            self.action_space = spaces.Dict({
-            'parameters':
-            spaces.Box(low=-1.0, high=1.0,
-                            shape=(self.batch_size, self.num_parameters), dtype=torch.float32),
-        })
-            if self.pre_encode == True:
-                self.observation_space = spaces.Dict({
+        #     self.action_space = spaces.Dict({
+        #     'parameters':
+        #     spaces.Box(low=-1.0, high=1.0,
+        #                     shape=(self.batch_size, self.num_parameters), dtype=torch.float32),
+        # })
+            # if self.pre_encode == True:
+            #     self.observation_space = spaces.Dict({
                      
-                'enhanced_encoded_source':
-                spaces.Box(low=-torch.inf,
-                        high=+torch.inf,
-                        shape=(-1, self.train.dataset.encoded_source.shape[1]),
-                        dtype=torch.float32),
+            #     'enhanced_encoded_source':
+            #     spaces.Box(low=-torch.inf,
+            #             high=+torch.inf,
+            #             shape=(-1, self.train.dataset.encoded_source.shape[1]),
+            #             dtype=torch.float32),
 
-                'encoded_image':spaces.Box(low=-torch.inf,
-                        high=+torch.inf,
-                        shape=(-1, self.train.dataset.encoded_source.shape[1]),
-                        dtype=torch.float32),
+            #     'encoded_image':spaces.Box(low=-torch.inf,
+            #             high=+torch.inf,
+            #             shape=(-1, self.train.dataset.encoded_source.shape[1]),
+            #             dtype=torch.float32),
                 
-                'source_image':spaces.Box(low=0,
-                            high=255,
-                            shape=(-1, 3, self.imsize, self.imsize),
-                            dtype=torch.uint8), 
-            }
-            )
+            #     'source_image':spaces.Box(low=0,
+            #                 high=255,
+            #                 shape=(-1, 3, self.imsize, self.imsize),
+            #                 dtype=torch.uint8), 
+            # }
+            # )
                 
-            else:
+            # else:
 
-                self.observation_space = spaces.Dict({
-                'image':
-                spaces.Box(low=0,
-                        high=255,
-                        shape=(self.batch_size, 3, self.imsize, self.imsize),
-                        dtype=torch.uint8),
+            #     self.observation_space = spaces.Dict({
+            #     'image':
+            #     spaces.Box(low=0,
+            #             high=255,
+            #             shape=(self.batch_size, 3, self.imsize, self.imsize),
+            #             dtype=torch.uint8),
 
-                'enhanced_image':spaces.Box(low=0,
-                        high=255,
-                        shape=(self.batch_size, 3, self.imsize, self.imsize),
-                        dtype=torch.uint8)
-            }
-            )
+            #     'enhanced_image':spaces.Box(low=0,
+            #             high=255,
+            #             shape=(self.batch_size, 3, self.imsize, self.imsize),
+            #             dtype=torch.uint8)
+            # }
+            # )
             self.done_threshold = done_threshold 
             self.target_images = None # Batch of images (B,3,H,W) of target images (ground_truth)
             self.encoded_target = None 
@@ -93,7 +94,7 @@ class PhotoEnhancementEnv(gym.Env):
             # self.action = None # Batch of actions  (B,N_params)
             # self.done = None # Batch of Bool that state wether the the sub env (images) reached the best enhacement
             self.sub_env_running = None
-            self.reset()    
+       
 
     def reset_data_iterator(self,):
         """
@@ -105,19 +106,19 @@ class PhotoEnhancementEnv(gym.Env):
         self.logger.debug('reset the drawn picture')
         if self.iter_dataloader_count == len(self.iter_dataloader):
             self.reset_data_iterator()
-            self.inter_dataloader_count = 0
+            self.iter_dataloader_count = 0
 
         if self.pre_encode:    
             source_image,target_images,encoded_source,encoded_target = next(self.iter_dataloader) 
             self.target_images = target_images
             self.encoded_target = encoded_target
-            self.sub_env_running = torch.Tensor([index for index in range(source_image.shape[0])])
+            self.sub_env_running = torch.Tensor([index for index in range(source_image.shape[0])]).to(torch.int32)
             observation = { 
                 'enhanced_encoded_image':encoded_source,              
                 'encoded_source':encoded_source,          
                 'source_image':source_image,   
             }
-
+            self.iter_dataloader_count += 1
 
         else:
             source_image,target_images = next(self.iter_dataloader) 
@@ -149,7 +150,7 @@ class PhotoEnhancementEnv(gym.Env):
 
         return rewards
 
-    def check_done(rewards:torch.Tensor,threshold:float):
+    def check_done(self,rewards:torch.Tensor,threshold:float):
         """
         Function that check if the enhanced image reached a certain minium threshold of enhancement. Mainly used for marking the end of enhancement of the image
             args: 
@@ -173,10 +174,11 @@ class PhotoEnhancementEnv(gym.Env):
             info : dict information 
         """
         source_images = self.state['source_image'] # batch of images that have to be enhanced
-        actions = batch_actions[self.sub_env_running,...]
+        actions =  torch.index_select(batch_actions,0,self.sub_env_running)
 
-        enhanced_image = self.photo_editor(source_images,actions)
-        encoded_enhanced_image = image_encoder.encode(enhanced_image)
+        enhanced_image = self.photo_editor(source_images.permute(0,2,3,1),actions) #(B,H,W,3)
+        enhanced_image = enhanced_image.permute(0,3,1,2) 
+        encoded_enhanced_image = image_encoder.encode(enhanced_image).cpu()
         rewards = self.compute_rewards(enhanced_image,self.target_images)
         done  = self.check_done(rewards,self.done_threshold)
 
@@ -185,12 +187,12 @@ class PhotoEnhancementEnv(gym.Env):
         
 
         #update state
-        self.state['source_image'] = source_images[self.sub_env_running,...]
-        self.state['encoded_enhanced_image'] = encoded_enhanced_image[self.sub_env_running,...]
-        self.state['encoded_source'] = encoded_enhanced_image[self.sub_env_running,...] 
+        self.state['source_image'] = torch.index_select(source_images,0,self.sub_env_running)
+        self.state['encoded_enhanced_image'] = torch.index_select(encoded_enhanced_image,0,self.sub_env_running)
+        self.state['encoded_source'] =torch.index_select(encoded_enhanced_image,0,self.sub_env_running)
 
-        self.target_images = self.target_images[self.sub_env_running,...]
-        self.encoded_target = self.encoded_target[self.sub_env_running,...]
+        self.target_images = torch.index_select(self.target_images,0,self.sub_env_running)
+        self.encoded_target = torch.index_select(self.encoded_target,0,self.sub_env_running)
 
         info ={} #not used
         next_state = self.state

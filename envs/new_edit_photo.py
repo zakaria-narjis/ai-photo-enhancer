@@ -456,7 +456,7 @@ class PhotoEditor():
         num_parameters = 0
 
         assert images.shape[-1]==3 #make sure that the image shape is (B,H,W,C)
-        assert images.dim()==4
+        assert images.dim()==4 #make sure that the image is batched
 
         for edit_func in self.edit_funcs:
             if edit_func.num_parameters == 0:
