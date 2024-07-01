@@ -167,7 +167,8 @@ class SAC:
                         self.a_optimizer.zero_grad()
                         alpha_loss.backward()
                         self.a_optimizer.step()
-                        alpha = self.log_alpha.exp().item()
+                        print(self.log_alpha)
+                        self.alpha = self.log_alpha.exp().item()
 
             # update the target networks
             if self.global_step % self.args.target_network_frequency == 0:
@@ -183,7 +184,7 @@ class SAC:
                 self.writer.add_scalar("losses/qf2_loss", qf2_loss.item(), self.global_step)
                 self.writer.add_scalar("losses/qf_loss", qf_loss.item() / 2.0, self.global_step)
                 self.writer.add_scalar("losses/actor_loss", actor_loss.item(), self.global_step)
-                self.writer.add_scalar("losses/alpha", alpha, self.global_step)
+                self.writer.add_scalar("losses/alpha", self.alpha, self.global_step)
                 print("SPS:", int(self.global_step / (time.time() - self.start_time)))
                 self.writer.add_scalar("charts/SPS", int(self.global_step / (time.time() - self.start_time)), self.global_step)
                 if self.args.autotune:
