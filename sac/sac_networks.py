@@ -11,8 +11,8 @@ class Actor(nn.Module):
     def __init__(self, env):
         super().__init__()
         if env.pre_encode:
-            input_shape = env.observation_space[1]*2 #ENCODED SOURCE+ ENCODED ENHANCED IMAGE
-            output_shape = env.action_space[1]
+            input_shape = env.observation_space._shape[1]*2 #ENCODED SOURCE+ ENCODED ENHANCED IMAGE
+            output_shape = env.action_space._shape[1]
         else:
             """
                 Not implemented Yet
@@ -59,8 +59,8 @@ class SoftQNetwork(nn.Module):
     def __init__(self, env):
         super().__init__()
         if env.pre_encode:
-            input_shape = env.observation_space[1]*2 #ENCODED SOURCE+ ENCODED ENHANCED IMAGE
-            output_shape = env.action_space[1]
+            input_shape = env.observation_space._shape[1]*2 #ENCODED SOURCE+ ENCODED ENHANCED IMAGE
+            output_shape = env.action_space._shape[1]
         else:
             """
                 Not implemented Yet
