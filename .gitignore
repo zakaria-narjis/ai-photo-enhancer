@@ -166,3 +166,4 @@ cython_debug/
 dataset/expertC
 dataset/original
 dataset/FiveK
+.VSCodeCounter
