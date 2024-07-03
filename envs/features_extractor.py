@@ -41,7 +41,7 @@ class ResnetEncoder(Extractor):
         assert images.dim()==4
         assert images.shape[1]==3
         with torch.inference_mode():
-            output = images.clone().to(self.device)/255.0
+            output = images.clone().to(self.device)
             output = self.preprocess(output)
             output = self.model(output)
             output = torch.flatten(output,start_dim=-3,end_dim=-1)

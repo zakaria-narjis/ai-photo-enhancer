@@ -2,18 +2,11 @@ from .image_dataset import FiveKDataset
 from torch.utils.data import Dataset
 import torch
 from torch.utils.data import DataLoader
-import torchvision.transforms as transforms
 from tqdm.notebook import tqdm
 from .features_extractor import ResnetEncoder
 
-TEST_BATCH_SIZE = 128
-TRAIN_BATCH_SIZE = 64
-ENCODING_BATCH_SIZE = 128
-IMG_SIZE = 64 #training image size
 
-# default_aug = transforms.Compose([
-#             transforms.Resize(size = (IMG_SIZE,IMG_SIZE) , interpolation=transforms.InterpolationMode.BICUBIC),
-#         ])
+ENCODING_BATCH_SIZE = 128
 
 image_encoder = ResnetEncoder()
 
@@ -22,9 +15,9 @@ class PhotoEnhancement(Dataset):
         Encode dataset images
         output : torch.Tensors of encoded and raw source/target images (3,H,W)
     """
-    def __init__(self,mode = 'train', pre_encode = True) -> None:
+    def __init__(self,image_size,mode = 'train', pre_encode = True) -> None:
         super().__init__()
-        self.img_dataset = FiveKDataset(mode=mode)
+        self.img_dataset = FiveKDataset(mode=mode,image_size=image_size)
         self.img_dataloader = DataLoader(self.img_dataset , batch_size=ENCODING_BATCH_SIZE, shuffle=False)
         self.pre_encode = pre_encode
         if self.pre_encode == True:
@@ -33,8 +26,8 @@ class PhotoEnhancement(Dataset):
             self.encoded_target  = []
             print(f'Encoding {mode}ing data ...')
             for source,target in tqdm(self.img_dataloader):
-                self.encoded_source.append(image_encoder.encode(source).cpu())
-                self.encoded_target.append(image_encoder.encode(target).cpu())
+                self.encoded_source.append(image_encoder.encode(source/255.0).cpu())
+                self.encoded_target.append(image_encoder.encode(target/255.0).cpu())
             print('finished...')   
             self.encoded_source = torch.cat(self.encoded_source)
             self.encoded_target = torch.cat(self.encoded_target)
@@ -55,10 +48,10 @@ class PhotoEnhancement(Dataset):
             return source_image,target_image
     
 
-def create_dataloaders(pre_encode= True,train_batch_size=TRAIN_BATCH_SIZE,test_batch_size = TEST_BATCH_SIZE ,shuffle=True):
-    test_dataset = PhotoEnhancement(mode='test', pre_encode = pre_encode)
-    train_dataset = PhotoEnhancement(mode='train',pre_encode=pre_encode) 
-    train_dataloader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, shuffle = shuffle)
-    test_dataloader = DataLoader(test_dataset, batch_size=TEST_BATCH_SIZE, shuffle = shuffle)
+def create_dataloaders(train_batch_size,test_batch_size,image_size,pre_encode= True,shuffle=True):
+    test_dataset = PhotoEnhancement(image_size=image_size,mode='test', pre_encode = pre_encode)
+    train_dataset = PhotoEnhancement(image_size=image_size,mode='train',pre_encode=pre_encode) 
+    train_dataloader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle = shuffle)
+    test_dataloader = DataLoader(test_dataset, batch_size=test_batch_size , shuffle = shuffle)
 
     return train_dataloader,test_dataloader

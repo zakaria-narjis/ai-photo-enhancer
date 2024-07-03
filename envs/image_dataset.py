@@ -1,21 +1,14 @@
 
-import torch
+
 from torch.utils.data import Dataset
-from torchvision import datasets
-from torchvision.transforms import ToTensor
+
 import torchvision.transforms as transforms
 from torchvision.io import read_image
 from torchvision.transforms import v2
-from PIL import Image 
+
 import os
-IMG_SIZE = 64 #training image size
 
-# ORIGINAL_FOLDER = './dataset/original/'
-# EXPERTC_FOLDER  = './dataset/expertC/'
 
-default_aug = transforms.Compose([
-            v2.Resize(size = (IMG_SIZE,IMG_SIZE), interpolation= transforms.InterpolationMode.BICUBIC),
-        ])
 
 # torch.inference_mode():
 class FiveKDataset(Dataset):
@@ -23,16 +16,16 @@ class FiveKDataset(Dataset):
     A dataset that reads Adobe5K dataset images
     output : tensor of unprocessed images
     """
-    def __init__(self, mode="train", transform = default_aug):
+    def __init__(self, image_size,mode="train", ):
         if mode =='train':
             self.IMGS_PATH = "./dataset/FiveK/train/"
         else:
             self.IMGS_PATH = "./dataset/FiveK/test/"
 
-        self.transform = transform 
-        # with open(self.IMGS_PATH ) as file:
-        #     content = file.read() 
-        #     self.img_files = content.split('\n')
+        self.transform = transforms.Compose([
+            v2.Resize(size = (image_size,image_size), interpolation= transforms.InterpolationMode.BICUBIC),
+        ])
+
 
         self.img_files = [filename for filename in os.listdir(self.IMGS_PATH+'input/')]
 

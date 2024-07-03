@@ -1,26 +1,28 @@
 import gymnasium as gym
-from gymnasium import spaces
-import numpy as np
 import logging
-import os
 from .new_edit_photo import PhotoEditor
 from .env_dataloader import create_dataloaders
 import torch
 from .features_extractor import ResnetEncoder
-from typing import Any, Generic, Iterable, Mapping, Sequence, TypeVar
+from typing import Sequence
 
-# DATASET_DIR = "./dataset/"
-# TARGET_DIR = "expertC/"
-# ORIGINAL_DIR = "original/"
+
 PRE_ENCODE = True
 IMSIZE = 64
-THRESHOLD = -0.01
-TEST_BATCH_SIZE = 128
-TRAIN_BATCH_SIZE = 64
+THRESHOLD = -70
+TEST_BATCH_SIZE = 500
+TRAIN_BATCH_SIZE = 128
 
+logging.basicConfig(
+    filename='photo_enhancement.log',  # Name of the log file
+    filemode='w',                      # Mode to write (w) and overwrite if it exists
+    level=logging.DEBUG,               # Set level to DEBUG to capture all messages
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Format of the log messages
+    datefmt='%Y-%m-%d %H:%M:%S'        # Date format
+)
 
 image_encoder = ResnetEncoder()
-train_dataloader,test_dataloader = create_dataloaders(pre_encode=PRE_ENCODE)
+train_dataloader,test_dataloader = create_dataloaders(TRAIN_BATCH_SIZE,TEST_BATCH_SIZE,image_size=IMSIZE,pre_encode=PRE_ENCODE)
 
 class Observation_Space:
     
@@ -60,7 +62,7 @@ class PhotoEnhancementEnv(gym.Env):
             'render.modes': ['human', 'rgb_array'],
         }
     def __init__(self,
-                    batch_size,
+                    batch_size=TRAIN_BATCH_SIZE,
                     logger=None,
                     imsize=IMSIZE,
                     training_mode=True,
@@ -108,47 +110,6 @@ class PhotoEnhancementEnv(gym.Env):
                 """
                 pass
 
-        #     self.action_space = spaces.Dict({
-        #     'parameters':
-        #     spaces.Box(low=-1.0, high=1.0,
-        #                     shape=(self.batch_size, self.num_parameters), dtype=torch.float32),
-        # })
-            # if self.pre_encode == True:
-            #     self.observation_space = spaces.Dict({
-                     
-            #     'enhanced_encoded_source':
-            #     spaces.Box(low=-torch.inf,
-            #             high=+torch.inf,
-            #             shape=(-1, self.train.dataset.encoded_source.shape[1]),
-            #             dtype=torch.float32),
-
-            #     'encoded_image':spaces.Box(low=-torch.inf,
-            #             high=+torch.inf,
-            #             shape=(-1, self.train.dataset.encoded_source.shape[1]),
-            #             dtype=torch.float32),
-                
-            #     'source_image':spaces.Box(low=0,
-            #                 high=255,
-            #                 shape=(-1, 3, self.imsize, self.imsize),
-            #                 dtype=torch.uint8), 
-            # }
-            # )
-                
-            # else:
-
-            #     self.observation_space = spaces.Dict({
-            #     'image':
-            #     spaces.Box(low=0,
-            #             high=255,
-            #             shape=(self.batch_size, 3, self.imsize, self.imsize),
-            #             dtype=torch.uint8),
-
-            #     'enhanced_image':spaces.Box(low=0,
-            #             high=255,
-            #             shape=(self.batch_size, 3, self.imsize, self.imsize),
-            #             dtype=torch.uint8)
-            # }
-            # )
             self.done_threshold = done_threshold 
             self.target_images = None # Batch of images (B,3,H,W) of target images (ground_truth)
             self.encoded_target = None 
@@ -189,7 +150,7 @@ class PhotoEnhancementEnv(gym.Env):
         else:
             source_image,target_images = next(self.iter_dataloader) 
             self.target_images = target_images
-            observation = {
+            batch_observation = {
                 'enhanced_image':source_image,                     
                 'source_image':source_image, 
             }
@@ -209,8 +170,9 @@ class PhotoEnhancementEnv(gym.Env):
         rmse = enhanced-target
         rmse = torch.pow(rmse,2).mean(1)
         rmse = torch.sqrt(rmse)
+        psnr = (20 * torch.log10(1/ rmse))-100 
         
-        rewards = -rmse
+        rewards = psnr
 
         return rewards
 

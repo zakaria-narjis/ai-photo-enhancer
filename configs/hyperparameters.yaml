@@ -13,7 +13,7 @@ track: false
 # Algorithm specific arguments
 total_timesteps: 1000000
 #total timesteps of the experiments#
-buffer_size: 45000
+buffer_size: 40000
 #the replay memory buffer size#
 gamma: 0.9
 #the discount factor gamma#
@@ -21,11 +21,11 @@ tau: 0.005
 #target smoothing coefficient (default: 0.005)#
 batch_size: 128
 #the batch size of sample from the reply memory#
-learning_starts: 100
+learning_starts: 200
 #timestep to start learning#
 policy_lr: 0.0003
 #the learning rate of the policy network optimizer#
-q_lr: 0.001
+q_lr: 0.0003
 #the learning rate of the Q network network optimizer#
 policy_frequency: 2
 #the frequency of training policy (delayed)#
@@ -34,4 +34,5 @@ target_network_frequency: 1  # Denis Yarats' implementation delays this by 2.
 alpha: 0.2
 #Entropy regularization coefficient.#
 autotune: true
-#automatic tuning of the entropy coefficient#
+#automatic tuning of the entropy coefficient#.
+max_episode_timesteps: 5

@@ -6,25 +6,13 @@ except RuntimeError:
     pass 
 
 from .sac_networks import Actor, SoftQNetwork
-from envs.photo_env import PhotoEnhancementEnv
 
-import os
-import random
 import time
-from dataclasses import dataclass
 
-import gymnasium as gym
-import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-
-
-from stable_baselines3.common.buffers import ReplayBuffer
-from torch.utils.tensorboard import SummaryWriter
-import yaml
 from tensordict import TensorDict
 from torchrl.data import TensorDictReplayBuffer,LazyMemmapStorage
 from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
@@ -77,13 +65,12 @@ class SAC:
         """
             perform one global step of training
         """
-        # encoded_source_image = self.obs[0]['encoded_source']
-        # encoded_enhanced_image = self.obs[0]['encoded_enhanced_image']   
-        # batch_observation = torch.cat((encoded_source_image,encoded_enhanced_image),dim=1)   
 
         # ALGO LOGIC: put action logic here
         runing_envs = self.env.sub_env_running # get running sub envs (images to be enhanced)
-        
+        if len(runing_envs)<128:
+            print('d',self.state,runing_envs)
+            print(self.state.shape,runing_envs.shape)
         batch_obs= torch.index_select(self.state,0,runing_envs).to(self.device)
 
         if self.global_step < self.args.learning_starts:
@@ -92,30 +79,15 @@ class SAC:
             actions, _, _ = self.actor.get_action(batch_obs)
             actions = actions.detach().cpu()
 
-        # TRY NOT TO MODIFY: execute the game and log data.
         next_batch_obs, rewards, dones = self.env.step(actions)
-
-        # # TRY NOT TO MODIFY: record rewards for plotting purposes
-        # if "final_info" in infos:
-        #     for info in infos["final_info"]:
-        #         print(f"global_step={self.global_step}, episodic_return={info['episode']['r']}")
-        #         self.writer.add_scalar("charts/episodic_return", info["episode"]["r"], self.global_step)
-        #         self.writer.add_scalar("charts/episodic_length", info["episode"]["l"], self.global_step)
-        #         break
-
-        # # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
-        # real_next_obs = next_obs.copy()
-        # for idx, trunc in enumerate(truncations):
-        #     if trunc:
-        #         real_next_obs[idx] = infos["final_observation"][idx]
 
         batch_transition = TensorDict(
             {
-                "observations":batch_obs,
-                "next_observations":next_batch_obs,
-                "actions":actions,
-                "rewards":rewards,
-                "dones":dones,
+                "observations":batch_obs.clone(),
+                "next_observations":next_batch_obs.clone(),
+                "actions":actions.clone(),
+                "rewards":rewards.clone(),
+                "dones":dones.clone(),
             },
             batch_size = [batch_obs.shape[0]],
         )
