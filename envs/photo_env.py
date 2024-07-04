@@ -15,7 +15,7 @@ PRE_ENCODE = True
 IMSIZE = 64
 THRESHOLD = -70
 TEST_BATCH_SIZE = 500
-TRAIN_BATCH_SIZE = 128
+TRAIN_BATCH_SIZE = 64
 
 logging.basicConfig(
     filename='photo_enhancement.log',  # Name of the log file
@@ -24,6 +24,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Format of the log messages
     datefmt='%Y-%m-%d %H:%M:%S'        # Date format
 )
+logging.disable(logging.CRITICAL)
 
 image_encoder = ResnetEncoder()
 train_dataloader,test_dataloader = create_dataloaders(TRAIN_BATCH_SIZE,TEST_BATCH_SIZE,image_size=IMSIZE,pre_encode=PRE_ENCODE)

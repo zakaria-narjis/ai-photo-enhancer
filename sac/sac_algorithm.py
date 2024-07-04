@@ -46,7 +46,8 @@ class SAC:
     
         # entropy
         if args.autotune:
-            self.target_entropy = -torch.prod(torch.Tensor(env.action_space._shape[1]).to(self.device)).item()
+            # self.target_entropy = -torch.prod(torch.Tensor(env.action_space._shape[1]).to(self.device)).item()
+            self.target_entropy = - env.action_space._shape[1]
             print(env.action_space._shape,self.target_entropy)
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
@@ -69,7 +70,7 @@ class SAC:
 
         # ALGO LOGIC: put action logic here
         runing_envs = self.env.sub_env_running # get running sub envs (images to be enhanced)
-        if len(runing_envs)<128:
+        if len(runing_envs)<self.env.batch_size:
             print('d',self.state,runing_envs)
             print(self.state.shape,runing_envs.shape)
         # batch_obs= torch.index_select(self.state,0,runing_envs).to(self.device)
