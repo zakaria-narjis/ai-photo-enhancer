@@ -46,7 +46,7 @@ class SAC:
     
         # entropy
         if args.autotune:
-            self.target_entropy = -torch.prod(torch.Tensor(env.action_space._shape).to(self.device)).item()
+            self.target_entropy = -torch.prod(torch.Tensor(env.action_space._shape[1]).to(self.device)).item()
             print(env.action_space._shape,self.target_entropy)
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
