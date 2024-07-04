@@ -5,7 +5,11 @@ from .env_dataloader import create_dataloaders
 import torch
 from .features_extractor import ResnetEncoder
 from typing import Sequence
-
+import multiprocessing as mp
+try:
+    mp.set_start_method('spawn', force=True)
+except RuntimeError:
+    pass  
 
 PRE_ENCODE = True
 IMSIZE = 64
@@ -133,14 +137,15 @@ class PhotoEnhancementEnv(gym.Env):
             self.iter_dataloader_count = 0
 
         if self.pre_encode:    
-            source_image,target_images,encoded_source,encoded_target = next(self.iter_dataloader) 
-            self.target_images = target_images/255.0
-            self.encoded_target = encoded_target
+            source_image,target_image,encoded_source,encoded_target = next(self.iter_dataloader) 
+            # self.target_images = target_images/255.0
+            # self.encoded_target = encoded_target
             self.sub_env_running = torch.Tensor([index for index in range(source_image.shape[0])]).to(torch.int32)
             self.state = { 
                 'encoded_enhanced_image':encoded_source,              
                 'encoded_source':encoded_source,          
-                'source_image':source_image,   
+                'source_image':source_image/255.0,   
+                'target_image':target_image/255.0,
             }
             self.iter_dataloader_count += 1
             encoded_source_image = self.state['encoded_source']
@@ -148,11 +153,11 @@ class PhotoEnhancementEnv(gym.Env):
             batch_observation = torch.cat((encoded_source_image,encoded_enhanced_image),dim=1)   
 
         else:
-            source_image,target_images = next(self.iter_dataloader) 
-            self.target_images = target_images
+            source_image,target_image = next(self.iter_dataloader) 
             batch_observation = {
                 'enhanced_image':source_image,                     
                 'source_image':source_image, 
+                'target_image':target_image,
             }
 
         return batch_observation
@@ -170,11 +175,12 @@ class PhotoEnhancementEnv(gym.Env):
         rmse = enhanced-target
         rmse = torch.pow(rmse,2).mean(1)
         rmse = torch.sqrt(rmse)
-        psnr = (20 * torch.log10(1/ rmse))-100 
-        
-        rewards = psnr
-
-        return rewards
+        if (rmse==0).all():
+            return torch.zeros(enhanced[0])
+        else:
+            psnr = (20 * torch.log10(1/ rmse))-100            
+            rewards = psnr
+            return rewards
 
     def check_done(self,rewards:torch.Tensor,threshold:float):
         """
@@ -204,30 +210,30 @@ class PhotoEnhancementEnv(gym.Env):
         """
 
         #update state
-        self.state['source_image'] = torch.index_select(self.state['source_image'],0,self.sub_env_running)
-        self.state['encoded_enhanced_image'] = torch.index_select(self.state['encoded_enhanced_image'],0,self.sub_env_running)
-        self.state['encoded_source'] =torch.index_select(self.state['encoded_source'],0,self.sub_env_running)
+        source_images = torch.index_select(self.state['source_image'],0,self.sub_env_running)
+        # encoded_enhanced_image = torch.index_select(self.state['encoded_enhanced_image'],0,self.sub_env_running)
+        encoded_source_images  =torch.index_select(self.state['encoded_source'],0,self.sub_env_running)
 
-        self.target_images = torch.index_select(self.target_images,0,self.sub_env_running)
-        self.encoded_target = torch.index_select(self.encoded_target,0,self.sub_env_running)
+        target_images = torch.index_select(self.state['target_image'],0,self.sub_env_running)
+        # self.encoded_target = torch.index_select(self.encoded_target,0,self.sub_env_running)
 
-        source_images = self.state['source_image']/255.0 # batch of images that have to be enhanced
+        # source_images = self.state['source_image']/255.0 # batch of images that have to be enhanced
         # actions =  torch.index_select(batch_actions,0,self.sub_env_running)
 
         enhanced_image = self.photo_editor(source_images.permute(0,2,3,1),batch_actions) #(B,H,W,3)
         enhanced_image = enhanced_image.permute(0,3,1,2) 
-        encoded_enhanced_image = image_encoder.encode(enhanced_image).cpu()
-        rewards = self.compute_rewards(enhanced_image,self.target_images)
+        encoded_enhanced_images = image_encoder.encode(enhanced_image).cpu()
+        rewards = self.compute_rewards(enhanced_image,target_images)
         done = self.check_done(rewards,self.done_threshold)
-        self.state['encoded_enhanced_image'] = encoded_enhanced_image
-
+        # self.state['encoded_enhanced_image'] = encoded_enhanced_images
+        rewards[done]+=50 
         running_sub_env_index = [not sub_env_state for sub_env_state in done]
         self.sub_env_running = self.sub_env_running[running_sub_env_index] # tensor of indicies of running sub_envs(images that didn't reach the threshold in self.check_done)
         
         info ={} #not used
 
-        encoded_source_image = self.state['encoded_source']
-        batch_observation = torch.cat((encoded_source_image,encoded_enhanced_image),dim=1)   
+        # encoded_source_image = self.state['encoded_source']
+        batch_observation = torch.cat((encoded_source_images,encoded_enhanced_images),dim=1)   
 
         # the whole episode should end when (done==True).all()
         return batch_observation, rewards, done

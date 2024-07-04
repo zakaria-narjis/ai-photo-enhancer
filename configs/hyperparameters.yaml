@@ -23,7 +23,7 @@ batch_size: 128
 #the batch size of sample from the reply memory#
 learning_starts: 200
 #timestep to start learning#
-policy_lr: 0.0003
+policy_lr: 0.003
 #the learning rate of the policy network optimizer#
 q_lr: 0.0003
 #the learning rate of the Q network network optimizer#

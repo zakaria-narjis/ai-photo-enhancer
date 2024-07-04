@@ -47,6 +47,7 @@ class SAC:
         # entropy
         if args.autotune:
             self.target_entropy = -torch.prod(torch.Tensor(env.action_space._shape).to(self.device)).item()
+            print(env.action_space._shape,self.target_entropy)
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
             self.a_optimizer = optim.Adam([self.log_alpha], lr=args.q_lr)
@@ -71,10 +72,12 @@ class SAC:
         if len(runing_envs)<128:
             print('d',self.state,runing_envs)
             print(self.state.shape,runing_envs.shape)
-        batch_obs= torch.index_select(self.state,0,runing_envs).to(self.device)
+        # batch_obs= torch.index_select(self.state,0,runing_envs).to(self.device)
+
+        batch_obs = self.state.to(self.device)
 
         if self.global_step < self.args.learning_starts:
-            actions = self.env.action_space.sample(len(runing_envs))
+            actions = self.env.action_space.sample(batch_obs.shape[0])
         else:
             actions, _, _ = self.actor.get_action(batch_obs)
             actions = actions.detach().cpu()
@@ -93,8 +96,8 @@ class SAC:
         )
         self.rb.extend(batch_transition)
 
-        # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
-        self.state =  next_batch_obs
+        runing_envs = self.env.sub_env_running 
+        self.state =  torch.index_select(next_batch_obs,0,runing_envs).to(self.device)
 
         # ALGO LOGIC: training.
         if self.global_step > self.args.learning_starts:
