@@ -35,4 +35,4 @@ alpha: 0.2
 #Entropy regularization coefficient.#
 autotune: true
 #automatic tuning of the entropy coefficient#.
-max_episode_timesteps: 5
+max_episode_timesteps: 1

@@ -144,14 +144,16 @@ class PhotoEnhancementEnv(gym.Env):
             self.sub_env_running = torch.Tensor([index for index in range(source_image.shape[0])]).to(torch.int32)
             self.state = { 
                 'encoded_enhanced_image':encoded_source,              
-                'encoded_source':encoded_source,          
+                'encoded_source':encoded_source,  
+                'enanced_image': source_image/255.0,      
                 'source_image':source_image/255.0,   
                 'target_image':target_image/255.0,
             }
             self.iter_dataloader_count += 1
             encoded_source_images = self.state['encoded_source']
             encoded_enhanced_images = self.state['encoded_enhanced_image']   
-            batch_observation = torch.cat((encoded_source_images,encoded_enhanced_images),dim=1)   
+            # batch_observation = torch.cat((encoded_source_images,encoded_enhanced_images),dim=1)   
+            batch_observation =  encoded_source_images
 
         else:
             source_image,target_image = next(self.iter_dataloader) 
@@ -230,15 +232,15 @@ class PhotoEnhancementEnv(gym.Env):
         done = self.check_done(rewards,self.done_threshold)
         # self.state['encoded_enhanced_image'] = encoded_enhanced_images
         rewards[done]+=50 
-
+        self.state['enhanced_image'] = enhanced_image
         running_sub_env_index = [not sub_env_state for sub_env_state in done]
         self.sub_env_running = self.sub_env_running[running_sub_env_index] # tensor of indicies of running sub_envs(images that didn't reach the threshold in self.check_done)
         
         info ={} #not used
 
         # encoded_source_image = self.state['encoded_source']
-        batch_observation = torch.cat((encoded_source_images,encoded_enhanced_images),dim=1)   
-
+        # batch_observation = torch.cat((encoded_source_images,encoded_enhanced_images),dim=1)   
+        batch_observation =  encoded_enhanced_images
         # the whole episode should end when (done==True).all()
         return batch_observation, rewards, done
 
@@ -254,4 +256,4 @@ class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
                                                  logger = logger,
                                                  dataloader = dataloader,
                                                  )
-    
+        
