@@ -138,7 +138,7 @@ class SAC:
                     if self.args.autotune:
                         with torch.no_grad():
                             _, log_pi, _ = self.actor.get_action(data["observations"])
-                        alpha_loss = (-self.log_alpha.exp() * (log_pi + self.target_entropy)).mean()
+                        alpha_loss = -(self.log_alpha.exp() * (log_pi + self.target_entropy)).mean()
                         self.a_optimizer.zero_grad()
                         alpha_loss.backward()
                         self.a_optimizer.step()
