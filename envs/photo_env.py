@@ -29,6 +29,33 @@ logging.disable(logging.CRITICAL)
 image_encoder = ResnetEncoder()
 train_dataloader,test_dataloader = create_dataloaders(TRAIN_BATCH_SIZE,TEST_BATCH_SIZE,image_size=IMSIZE,pre_encode=PRE_ENCODE)
 
+def sample_near_values_batch(tensor, batch_size, std_dev=0.05, clip_min=0.0, clip_max=1.0):
+    """
+    Generate a batch of sampled values near the given tensor.
+    
+    Args:
+    tensor (torch.Tensor): The input tensor to sample near.
+    batch_size (int): The number of samples to generate.
+    std_dev (float): Standard deviation for the normal distribution.
+    clip_min (float): Minimum value to clip the result.
+    clip_max (float): Maximum value to clip the result.
+    
+    Returns:
+    torch.Tensor: A batch of tensors with sampled values.
+    """
+    # Expand the input tensor to the desired batch size
+    batched_tensor = tensor.unsqueeze(0).expand(batch_size, -1)
+    
+    # Create a noise tensor with the same shape as the batched tensor
+    noise = torch.randn_like(batched_tensor) * std_dev
+    
+    # Add the noise to the batched tensor
+    sampled = batched_tensor + noise
+    
+    # Clip the values to ensure they're within the specified range
+    sampled = torch.clamp(sampled, clip_min, clip_max)
+    
+    return sampled
 class Observation_Space:
     
     def __init__(self,
@@ -60,7 +87,8 @@ class Action_Space:
         return self._shape
     
     def sample(self,batch_size):
-        return torch.rand(batch_size,self._shape[1])
+        original_tensor = torch.tensor([0.125, 0.125, 0.375, 0.125, 0., 0.0625, 0.9375, 0.375, 0.0625, 0., 0.125, 0.125])
+        return sample_near_values_batch(original_tensor, batch_size)
 
 class PhotoEnhancementEnv(gym.Env):
     metadata = {

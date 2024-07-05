@@ -82,7 +82,6 @@ class SAC:
         else:
             actions, _, _ = self.actor.get_action(batch_obs)
             actions = actions.detach().cpu()
-
         next_batch_obs, rewards, dones = self.env.step(actions)
 
         batch_transition = TensorDict(
@@ -104,11 +103,14 @@ class SAC:
         if self.global_step > self.args.learning_starts:
             data = self.rb.sample(self.args.batch_size).to(self.device)
             with torch.no_grad():
-                next_state_actions, next_state_log_pi, _ = self.actor.get_action(data["next_observations"])
-                qf1_next_target = self.qf1_target(data["next_observations"], next_state_actions)
-                qf2_next_target = self.qf2_target(data["next_observations"], next_state_actions)
-                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
-                next_q_value = data["rewards"].flatten() + (1 - data["dones"].to(torch.float32).flatten()) * self.args.gamma * (min_qf_next_target).view(-1)
+                if self.args.gamma!=0:
+                    next_state_actions, next_state_log_pi, _ = self.actor.get_action(data["next_observations"])
+                    qf1_next_target = self.qf1_target(data["next_observations"], next_state_actions)
+                    qf2_next_target = self.qf2_target(data["next_observations"], next_state_actions)
+                    min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
+                    next_q_value = data["rewards"].flatten() + (1 - data["dones"].to(torch.float32).flatten()) * self.args.gamma * (min_qf_next_target).view(-1)
+                else:
+                    next_q_value = data["rewards"].flatten()
 
             qf1_a_values = self.qf1(data["observations"], data["actions"]).view(-1)
             qf2_a_values = self.qf2(data["observations"], data["actions"]).view(-1)
@@ -136,22 +138,21 @@ class SAC:
                     self.actor_optimizer.step()
 
                     if self.args.autotune:
-                        log_pi=log_pi.detach()
-                        log_pi.requires_grad=False
                         # with torch.no_grad():
                         #     _, log_pi, _ = self.actor.get_action(data["observations"])
-                        alpha_loss = -(self.log_alpha.exp() * (log_pi + self.target_entropy)).mean()
+                        alpha_loss = (-self.log_alpha.exp() * (log_pi + self.target_entropy).detach()).mean()
                         self.a_optimizer.zero_grad()
                         alpha_loss.backward()
                         self.a_optimizer.step()
                         self.alpha = self.log_alpha.exp().item()
 
             # update the target networks
-            if self.global_step % self.args.target_network_frequency == 0:
-                for param, target_param in zip(self.qf1.parameters(), self.qf1_target.parameters()):
-                    target_param.data.copy_(self.args.tau * param.data + (1 - self.args.tau) * target_param.data)
-                for param, target_param in zip(self.qf2.parameters(), self.qf2_target.parameters()):
-                    target_param.data.copy_(self.args.tau * param.data + (1 - self.args.tau) * target_param.data)
+            if self.args.gamma!=0:
+                if self.global_step % self.args.target_network_frequency == 0:
+                    for param, target_param in zip(self.qf1.parameters(), self.qf1_target.parameters()):
+                        target_param.data.copy_(self.args.tau * param.data + (1 - self.args.tau) * target_param.data)
+                    for param, target_param in zip(self.qf2.parameters(), self.qf2_target.parameters()):
+                        target_param.data.copy_(self.args.tau * param.data + (1 - self.args.tau) * target_param.data)
 
             if self.global_step % 100 == 0:
                 self.writer.add_scalar("losses/qf1_values", qf1_a_values.mean().item(), self.global_step)
