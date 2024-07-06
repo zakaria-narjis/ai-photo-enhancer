@@ -441,15 +441,22 @@ class Photopro2Srgb:
         return srgb
     
 class PhotoEditor():
-    def __init__(self):
+    def __init__(self,sliders= None):
         self.edit_funcs = [Srgb2Photopro(), AdjustDehaze(), AdjustClarity(), AdjustContrast(),
                 SigmoidInverse(), AdjustExposure(), AdjustTemp(), AdjustTint(),
                 Sigmoid(), Bgr2Hsv(), AdjustWhites(), AdjustBlacks(), AdjustHighlights(),
                 AdjustShadows(), AdjustVibrance(), AdjustSaturation(), Hsv2Bgr(), Photopro2Srgb()]
-
+        self.sliders = sliders
         self.num_parameters = 0
-        for edit_func in self.edit_funcs:
-            self.num_parameters += edit_func.num_parameters
+        if sliders==None:
+            for edit_func in self.edit_funcs:
+                self.num_parameters += edit_func.num_parameters
+        else:
+            for edit_func in self.edit_funcs:
+                if edit_func.num_parameters==0:
+                    self.num_parameters += edit_func.num_parameters
+                elif edit_func.slider_names[0] in sliders:
+                    self.num_parameters += edit_func.num_parameters
 
     def __call__(self, images, parameters):
         editted_images = images.clone()
@@ -459,12 +466,25 @@ class PhotoEditor():
         assert images.dim()==4 #make sure that the image is batched
 
         for edit_func in self.edit_funcs:
-            if edit_func.num_parameters == 0:
-                editted_images = edit_func(editted_images)              
+
+            if self.sliders==None:
+
+                if edit_func.num_parameters == 0:
+                    editted_images = edit_func(editted_images)              
+                else:
+                    editted_images = edit_func(editted_images,
+                        parameters[:,num_parameters : num_parameters + edit_func.num_parameters])
+                num_parameters = num_parameters + edit_func.num_parameters
+
             else:
-                editted_images = edit_func(editted_images,
-                    parameters[:,num_parameters : num_parameters + edit_func.num_parameters])
-            num_parameters = num_parameters + edit_func.num_parameters
+
+                if edit_func.num_parameters == 0:
+                    editted_images = edit_func(editted_images)              
+                else:
+                    if edit_func.slider_names[0] in self.sliders:
+                        editted_images = edit_func(editted_images,
+                            parameters[:,num_parameters : num_parameters + edit_func.num_parameters])                
+                        num_parameters = num_parameters + edit_func.num_parameters               
 
         editted_images = editted_images.type(torch.float32)
 

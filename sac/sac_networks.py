@@ -3,7 +3,8 @@ from torch import nn
 import torch.nn.functional as F
 from torchvision import models
 from torchvision import transforms
-LOG_STD_MAX = 2
+import torch.nn.init as init
+LOG_STD_MAX = 3
 LOG_STD_MIN = -5
 
 
@@ -22,7 +23,7 @@ class Backbone(nn.Module):
         return features
 
 class Actor(nn.Module):
-    def __init__(self, env, features_extractor=None):
+    def __init__(self, env, features_extractor=None,use_xavier = True):
         super().__init__()
         input_shape = env.observation_space._shape[1]*1 
         output_shape = env.action_space._shape[1]
@@ -43,7 +44,9 @@ class Actor(nn.Module):
         self.register_buffer(
             "action_bias", torch.tensor((env.action_space.high + env.action_space.low) / 2.0, dtype=torch.float32)
         )
-
+        if use_xavier:
+            self._initialize_weights()
+            
     def forward(self, x):
         x = self.features_extractor(x)
         x = F.relu(self.fc1(x))
@@ -68,10 +71,16 @@ class Actor(nn.Module):
         log_prob = log_prob.sum(1, keepdim=True)
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, log_prob, mean
-
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    init.zeros_(m.bias)
 
 class SoftQNetwork(nn.Module):
-    def __init__(self, env,features_extractor=None):
+    def __init__(self, env,features_extractor=None,use_xavier = True):
         super().__init__()
         input_shape = env.observation_space._shape[1]*1 
         output_shape = env.action_space._shape[1]
@@ -85,6 +94,9 @@ class SoftQNetwork(nn.Module):
         self.fc2 = nn.Linear(256,128)
         self.fc3 = nn.Linear(128, 1)
 
+        if use_xavier:
+            self._initialize_weights()
+
     def forward(self, x, a):
         x = self.features_extractor(x)
         x = torch.cat([x, a], 1)
@@ -92,4 +104,11 @@ class SoftQNetwork(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    init.zeros_(m.bias)
     

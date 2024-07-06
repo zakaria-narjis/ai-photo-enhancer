@@ -22,6 +22,12 @@ else:
 TEST_BATCH_SIZE = 500
 TRAIN_BATCH_SIZE = 32
 FEATURES_SIZE = 512
+# [Srgb2Photopro(), AdjustDehaze(), AdjustClarity(), AdjustContrast(),
+#                 SigmoidInverse(), AdjustExposure(), AdjustTemp(), AdjustTint(),
+#                 Sigmoid(), Bgr2Hsv(), AdjustWhites(), AdjustBlacks(), AdjustHighlights(),
+#                 AdjustShadows(), AdjustVibrance(), AdjustSaturation(), Hsv2Bgr(), Photopro2Srgb()]
+
+SLIDERS_TO_USE = ["contrast","exposure","shadows","highlights","whites"]
 
 logging.basicConfig(
     filename='photo_enhancement.log',  # Name of the log file
@@ -32,7 +38,9 @@ logging.basicConfig(
 )
 logging.disable(logging.CRITICAL)
 
-image_encoder = ResnetEncoder()
+if PRE_ENCODE :
+    image_encoder = ResnetEncoder()
+
 train_dataloader,test_dataloader = create_dataloaders(TRAIN_BATCH_SIZE,TEST_BATCH_SIZE,image_size=IMSIZE,pre_encode=PRE_ENCODE)
 
 def sample_near_values_batch(tensor, batch_size, std_dev=0.05, clip_min=0.0, clip_max=1.0):
@@ -94,8 +102,8 @@ class Action_Space:
     
     def sample(self,batch_size):
         original_tensor = torch.tensor([0.125, 0.125, 0.375, 0.125, 0., 0.0625, 0.9375, 0.375, 0.0625, 0., 0.125, 0.125])
-        return sample_near_values_batch(original_tensor, batch_size)
-
+        # return sample_near_values_batch(original_tensor, batch_size) torch.rand()
+        return torch.rand(batch_size,self._shape[1])
 class PhotoEnhancementEnv(gym.Env):
     metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -107,7 +115,8 @@ class PhotoEnhancementEnv(gym.Env):
                     training_mode=True,
                     done_threshold = THRESHOLD,
                     dataloader = train_dataloader,
-                    pre_encode = PRE_ENCODE
+                    pre_encode = PRE_ENCODE,
+                    edit_sliders = SLIDERS_TO_USE
                     ):
             super().__init__()
             """
@@ -126,8 +135,8 @@ class PhotoEnhancementEnv(gym.Env):
             self.training_mode = training_mode
             self.pre_encode = pre_encode
             self.dataloader = dataloader
-
-            self.photo_editor = PhotoEditor()
+            self.edit_sliders = edit_sliders 
+            self.photo_editor = PhotoEditor(sliders=edit_sliders)
             self.num_parameters = self.photo_editor.num_parameters
 
             self.iter_dataloader_count = 0 #counts number of batch of samples seen by the agent
