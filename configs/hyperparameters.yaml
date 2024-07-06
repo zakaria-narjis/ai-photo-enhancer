@@ -13,13 +13,13 @@ track: false
 # Algorithm specific arguments
 total_timesteps: 40000
 #total timesteps of the experiments#
-buffer_size: 80000
+buffer_size: 40000
 #the replay memory buffer size#
 gamma: 0
 #the discount factor gamma#
 tau: 0.005
 #target smoothing coefficient (default: 0.005)#
-batch_size: 64
+batch_size: 32
 #the batch size of sample from the reply memory#
 learning_starts: 300
 #timestep to start learning#

@@ -15,7 +15,7 @@ PRE_ENCODE = False
 IMSIZE = 64
 THRESHOLD = -70
 TEST_BATCH_SIZE = 500
-TRAIN_BATCH_SIZE = 64
+TRAIN_BATCH_SIZE = 32
 FEATURES_SIZE = 512
 
 logging.basicConfig(
@@ -220,7 +220,7 @@ class PhotoEnhancementEnv(gym.Env):
         if (rmse==0).all():
             return torch.zeros(enhanced[0])
         else:
-            psnr = (20 * torch.log10(1/ rmse))-100            
+            psnr = ((20 * torch.log10(1/ rmse))-50)/50            
             rewards = psnr
             return rewards
 
@@ -270,7 +270,7 @@ class PhotoEnhancementEnv(gym.Env):
             rewards = self.compute_rewards(enhanced_image,target_images)
             done = self.check_done(rewards,self.done_threshold)
             # self.state['encoded_enhanced_image'] = encoded_enhanced_images
-            rewards[done]+=50 
+            rewards[done]+=5 
             self.state['enhanced_image'] = enhanced_image
             running_sub_env_index = [not sub_env_state for sub_env_state in done]
             self.sub_env_running = self.sub_env_running[running_sub_env_index] # tensor of indicies of running sub_envs(images that didn't reach the threshold in self.check_done)

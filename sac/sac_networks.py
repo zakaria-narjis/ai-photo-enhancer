@@ -18,6 +18,7 @@ class Backbone(nn.Module):
     def forward(self,batch_images):
         x = self.preprocess (batch_images)
         features = self.model(x)
+        features=torch.flatten(features,start_dim=-3,end_dim=-1)
         return features
 
 class Actor(nn.Module):
@@ -32,9 +33,9 @@ class Actor(nn.Module):
             self.features_extractor = features_extractor
             
         self.fc1 = nn.Linear(input_shape , 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.fc_mean = nn.Linear(256, output_shape)
-        self.fc_logstd = nn.Linear(256, output_shape)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc_mean = nn.Linear(64, output_shape)
+        self.fc_logstd = nn.Linear(64, output_shape)
         # action rescaling
         self.register_buffer(
             "action_scale", torch.tensor((env.action_space.high - env.action_space.low) / 2.0, dtype=torch.float32)
@@ -81,8 +82,8 @@ class SoftQNetwork(nn.Module):
             self.features_extractor = features_extractor
 
         self.fc1 = nn.Linear(input_shape+output_shape , 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.fc3 = nn.Linear(256, 1)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 1)
 
     def forward(self, x, a):
         x = self.features_extractor(x)
