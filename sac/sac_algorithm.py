@@ -84,7 +84,6 @@ class SAC:
             actions, _, _ = self.actor.get_action(batch_obs)
             actions = actions.detach().cpu()
         next_batch_obs, rewards, dones = self.env.step(actions)
-
         batch_transition = TensorDict(
             {
                 "observations":batch_obs.clone(),
@@ -168,4 +167,4 @@ class SAC:
                 if self.args.autotune:
                     self.writer.add_scalar("losses/alpha_loss", alpha_loss.item(), self.global_step)
         
-        return rewards.mean().item(),dones
+        return rewards,dones

@@ -13,7 +13,12 @@ except RuntimeError:
 
 PRE_ENCODE = False
 IMSIZE = 64
-THRESHOLD = -70
+PSNR_REWARD = False
+if PSNR_REWARD:
+    THRESHOLD = -70
+else:
+    THRESHOLD = -0.01
+
 TEST_BATCH_SIZE = 500
 TRAIN_BATCH_SIZE = 32
 FEATURES_SIZE = 512
@@ -217,12 +222,14 @@ class PhotoEnhancementEnv(gym.Env):
         rmse = enhanced-target
         rmse = torch.pow(rmse,2).mean(1)
         rmse = torch.sqrt(rmse)
-        if (rmse==0).all():
-            return torch.zeros(enhanced[0])
-        else:
-            psnr = ((20 * torch.log10(1/ rmse))-50)/50            
-            rewards = psnr
-            return rewards
+        # if (rmse==0).all():
+        #     return torch.zeros(enhanced[0])
+        # else:
+        #     psnr = ((20 * torch.log10(1/ rmse))-50)/50            
+        #     rewards = psnr
+        #     return rewards
+        rewards = -rmse
+        return rewards
 
     def check_done(self,rewards:torch.Tensor,threshold:float):
         """
@@ -268,9 +275,12 @@ class PhotoEnhancementEnv(gym.Env):
             enhanced_image = enhanced_image.permute(0,3,1,2) 
             encoded_enhanced_images = image_encoder.encode(enhanced_image).cpu()
             rewards = self.compute_rewards(enhanced_image,target_images)
+
             done = self.check_done(rewards,self.done_threshold)
+
             # self.state['encoded_enhanced_image'] = encoded_enhanced_images
-            rewards[done]+=5 
+            rewards[done]+=1 
+
             self.state['enhanced_image'] = enhanced_image
             running_sub_env_index = [not sub_env_state for sub_env_state in done]
             self.sub_env_running = self.sub_env_running[running_sub_env_index] # tensor of indicies of running sub_envs(images that didn't reach the threshold in self.check_done)
@@ -289,9 +299,8 @@ class PhotoEnhancementEnv(gym.Env):
             enhanced_image = enhanced_image.permute(0,3,1,2) 
 
             rewards = self.compute_rewards(enhanced_image,target_images)
-            done = self.check_done(rewards,self.done_threshold)           
-            rewards[done]+=50 
-
+            done = self.check_done(rewards,self.done_threshold)      
+            rewards[done]+=1
             self.state['enhanced_image'] = enhanced_image
             batch_observation =  enhanced_image
         return batch_observation, rewards, done
