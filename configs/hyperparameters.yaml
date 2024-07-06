@@ -21,7 +21,7 @@ tau: 0.005
 #target smoothing coefficient (default: 0.005)#
 batch_size: 64
 #the batch size of sample from the reply memory#
-learning_starts: 1000
+learning_starts: 300
 #timestep to start learning#
 policy_lr: 0.0003
 #the learning rate of the policy network optimizer#

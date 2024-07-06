@@ -11,11 +11,12 @@ try:
 except RuntimeError:
     pass  
 
-PRE_ENCODE = True
+PRE_ENCODE = False
 IMSIZE = 64
 THRESHOLD = -70
 TEST_BATCH_SIZE = 500
 TRAIN_BATCH_SIZE = 64
+FEATURES_SIZE = 512
 
 logging.basicConfig(
     filename='photo_enhancement.log',  # Name of the log file
@@ -138,10 +139,18 @@ class PhotoEnhancementEnv(gym.Env):
                     dtype = torch.float32
                 )
             else:
-                """
-                    Not implemented yet
-                """
-                pass
+                self.observation_space= Observation_Space(
+                        shape = (self.batch_size,FEATURES_SIZE),
+                        dtype = torch.float32)
+                                                          
+                self.action_space = Action_Space(
+                    high = 1,
+                    low = -1,
+                    shape = (self.batch_size,self.num_parameters),
+                    dtype = torch.float32
+                )
+
+                
 
             self.done_threshold = done_threshold 
             self.target_images = None # Batch of images (B,3,H,W) of target images (ground_truth)
@@ -185,12 +194,13 @@ class PhotoEnhancementEnv(gym.Env):
 
         else:
             source_image,target_image = next(self.iter_dataloader) 
-            batch_observation = {
-                'enhanced_image':source_image,                     
-                'source_image':source_image, 
-                'target_image':target_image,
+        #  self.sub_env_running = torch.Tensor([index for index in range(source_image.shape[0])]).to(torch.int32)
+            self.state = {
+                'enhanced_image':source_image/255.0,                     
+                'source_image':source_image/255.0, 
+                'target_image':target_image/255.0,
             }
-
+            batch_observation= self.state['source_image']
         return batch_observation
     
 
@@ -239,37 +249,50 @@ class PhotoEnhancementEnv(gym.Env):
             done: list of Bool True if the agent reached acceptable performance False not yet
             info : dict information 
         """
+        if self.pre_encode:
+            #update state
+            self.state['source_image'] = torch.index_select(self.state['source_image'],0,self.sub_env_running)
+            # encoded_enhanced_image = torch.index_select(self.state['encoded_enhanced_image'],0,self.sub_env_running)
+            self.state['encoded_source']  =torch.index_select(self.state['encoded_source'],0,self.sub_env_running)
 
-        #update state
-        self.state['source_image'] = torch.index_select(self.state['source_image'],0,self.sub_env_running)
-        # encoded_enhanced_image = torch.index_select(self.state['encoded_enhanced_image'],0,self.sub_env_running)
-        self.state['encoded_source']  =torch.index_select(self.state['encoded_source'],0,self.sub_env_running)
+            self.state['target_image'] = torch.index_select(self.state['target_image'],0,self.sub_env_running)
+            # self.encoded_target = torch.index_select(self.encoded_target,0,self.sub_env_running)
+            self.sub_env_running = torch.Tensor([index for index in range(self.sub_env_running.shape[0])]).to(torch.int32)
+            source_images = self.state['source_image']# batch of images that have to be enhanced
+            target_images = self.state['target_image']
+            encoded_source_images = self.state['encoded_source']
+            # actions =  torch.index_select(batch_actions,0,self.sub_env_running)
 
-        self.state['target_image'] = torch.index_select(self.state['target_image'],0,self.sub_env_running)
-        # self.encoded_target = torch.index_select(self.encoded_target,0,self.sub_env_running)
-        self.sub_env_running = torch.Tensor([index for index in range(self.sub_env_running.shape[0])]).to(torch.int32)
-        source_images = self.state['source_image']# batch of images that have to be enhanced
-        target_images = self.state['target_image']
-        encoded_source_images = self.state['encoded_source']
-        # actions =  torch.index_select(batch_actions,0,self.sub_env_running)
+            enhanced_image = self.photo_editor(source_images.permute(0,2,3,1),batch_actions) #(B,H,W,3)
+            enhanced_image = enhanced_image.permute(0,3,1,2) 
+            encoded_enhanced_images = image_encoder.encode(enhanced_image).cpu()
+            rewards = self.compute_rewards(enhanced_image,target_images)
+            done = self.check_done(rewards,self.done_threshold)
+            # self.state['encoded_enhanced_image'] = encoded_enhanced_images
+            rewards[done]+=50 
+            self.state['enhanced_image'] = enhanced_image
+            running_sub_env_index = [not sub_env_state for sub_env_state in done]
+            self.sub_env_running = self.sub_env_running[running_sub_env_index] # tensor of indicies of running sub_envs(images that didn't reach the threshold in self.check_done)
+            
+            info = {} #not used
 
-        enhanced_image = self.photo_editor(source_images.permute(0,2,3,1),batch_actions) #(B,H,W,3)
-        enhanced_image = enhanced_image.permute(0,3,1,2) 
-        encoded_enhanced_images = image_encoder.encode(enhanced_image).cpu()
-        rewards = self.compute_rewards(enhanced_image,target_images)
-        done = self.check_done(rewards,self.done_threshold)
-        # self.state['encoded_enhanced_image'] = encoded_enhanced_images
-        rewards[done]+=50 
-        self.state['enhanced_image'] = enhanced_image
-        running_sub_env_index = [not sub_env_state for sub_env_state in done]
-        self.sub_env_running = self.sub_env_running[running_sub_env_index] # tensor of indicies of running sub_envs(images that didn't reach the threshold in self.check_done)
-        
-        info ={} #not used
+            # encoded_source_image = self.state['encoded_source']
+            # batch_observation = torch.cat((encoded_source_images,encoded_enhanced_images),dim=1)   
+            batch_observation =  encoded_enhanced_images
+            # the whole episode should end when (done==True).all()
+        else:
+            source_images = self.state['source_image']
+            target_images = self.state['target_image']
 
-        # encoded_source_image = self.state['encoded_source']
-        # batch_observation = torch.cat((encoded_source_images,encoded_enhanced_images),dim=1)   
-        batch_observation =  encoded_enhanced_images
-        # the whole episode should end when (done==True).all()
+            enhanced_image = self.photo_editor(source_images.permute(0,2,3,1),batch_actions)
+            enhanced_image = enhanced_image.permute(0,3,1,2) 
+
+            rewards = self.compute_rewards(enhanced_image,target_images)
+            done = self.check_done(rewards,self.done_threshold)           
+            rewards[done]+=50 
+            
+            self.state['enhanced_image'] = enhanced_image
+            batch_observation =  enhanced_image
         return batch_observation, rewards, done
 
 

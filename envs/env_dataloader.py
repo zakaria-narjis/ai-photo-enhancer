@@ -34,7 +34,7 @@ class PhotoEnhancement(Dataset):
 
 
     def __len__(self,):
-        return self.encoded_source.shape[0]
+        return len(self.img_dataset)
 
     def __getitem__(self, index):
         source_image,target_image = self.img_dataset[index]# raw images

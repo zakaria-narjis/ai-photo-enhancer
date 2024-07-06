@@ -5,7 +5,7 @@ try:
 except RuntimeError:
     pass 
 
-from .sac_networks import Actor, SoftQNetwork
+from .sac_networks import Actor, SoftQNetwork, Backbone
 
 import time
 
@@ -30,11 +30,12 @@ class SAC:
         self.writer = writer
         self.args = args
         #networks
-        self.actor = Actor(env).to(self.device)
-        self.qf1 = SoftQNetwork(env).to(self.device)
-        self.qf2 = SoftQNetwork(env).to(self.device)
-        self.qf1_target = SoftQNetwork(env).to(self.device)
-        self.qf2_target = SoftQNetwork(env).to(self.device)
+        self.backbone = Backbone().to(self.device)
+        self.actor = Actor(env,self.backbone).to(self.device)
+        self.qf1 = SoftQNetwork(env,self.backbone).to(self.device)
+        self.qf2 = SoftQNetwork(env,self.backbone).to(self.device)
+        self.qf1_target = SoftQNetwork(env,self.backbone).to(self.device)
+        self.qf2_target = SoftQNetwork(env,self.backbone).to(self.device)
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
         self.q_optimizer = optim.Adam(list(self.qf1.parameters()) + list(self.qf2.parameters()), lr=args.q_lr)
@@ -68,12 +69,12 @@ class SAC:
             perform one global step of training
         """
 
-        # ALGO LOGIC: put action logic here
-        runing_envs = self.env.sub_env_running # get running sub envs (images to be enhanced)
-        # if len(runing_envs)<self.env.batch_size:
-        #     print('d',self.state,runing_envs)
-        #     print(self.state.shape,runing_envs.shape)
-        # batch_obs= torch.index_select(self.state,0,runing_envs).to(self.device)
+        # # ALGO LOGIC: put action logic here
+        # runing_envs = self.env.sub_env_running # get running sub envs (images to be enhanced)
+        # # if len(runing_envs)<self.env.batch_size:
+        # #     print('d',self.state,runing_envs)
+        # #     print(self.state.shape,runing_envs.shape)
+        # # batch_obs= torch.index_select(self.state,0,runing_envs).to(self.device)
 
         batch_obs = self.state.to(self.device)
 
@@ -96,8 +97,8 @@ class SAC:
         )
         self.rb.extend(batch_transition)
 
-        runing_envs = self.env.sub_env_running 
-        self.state =  torch.index_select(next_batch_obs,0,runing_envs).to(self.device)
+        # runing_envs = self.env.sub_env_running 
+        # self.state =  torch.index_select(next_batch_obs,0,runing_envs).to(self.device)
 
         # ALGO LOGIC: training.
         if self.global_step > self.args.learning_starts:
