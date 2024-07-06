@@ -11,17 +11,17 @@ try:
 except RuntimeError:
     pass  
 
-PRE_ENCODE = False
-IMSIZE = 64
-PSNR_REWARD = False
-if PSNR_REWARD:
-    THRESHOLD = -70
-else:
-    THRESHOLD = -0.01
+# PRE_ENCODE = False
+# IMSIZE = 64
+# PSNR_REWARD = True
+# if PSNR_REWARD:
+#     THRESHOLD = -25
+# else:
+#     THRESHOLD = -0.01
 
-TEST_BATCH_SIZE = 500
-TRAIN_BATCH_SIZE = 32
-FEATURES_SIZE = 512
+# TEST_BATCH_SIZE = 500
+# TRAIN_BATCH_SIZE = 32
+# FEATURES_SIZE = 512
 # [Srgb2Photopro(), AdjustDehaze(), AdjustClarity(), AdjustContrast(),
 #                 SigmoidInverse(), AdjustExposure(), AdjustTemp(), AdjustTint(),
 #                 Sigmoid(), Bgr2Hsv(), AdjustWhites(), AdjustBlacks(), AdjustHighlights(),
@@ -38,10 +38,6 @@ logging.basicConfig(
 )
 logging.disable(logging.CRITICAL)
 
-if PRE_ENCODE :
-    image_encoder = ResnetEncoder()
-
-train_dataloader,test_dataloader = create_dataloaders(TRAIN_BATCH_SIZE,TEST_BATCH_SIZE,image_size=IMSIZE,pre_encode=PRE_ENCODE)
 
 def sample_near_values_batch(tensor, batch_size, std_dev=0.05, clip_min=0.0, clip_max=1.0):
     """
@@ -109,14 +105,14 @@ class PhotoEnhancementEnv(gym.Env):
             'render.modes': ['human', 'rgb_array'],
         }
     def __init__(self,
-                    batch_size=TRAIN_BATCH_SIZE,
-                    logger=None,
-                    imsize=IMSIZE,
-                    training_mode=True,
-                    done_threshold = THRESHOLD,
-                    dataloader = train_dataloader,
-                    pre_encode = PRE_ENCODE,
-                    edit_sliders = SLIDERS_TO_USE
+                    batch_size,
+                    imsize,
+                    training_mode,
+                    done_threshold ,
+                    pre_encode ,
+                    edit_sliders ,
+                    features_size ,
+                    logger=None
                     ):
             super().__init__()
             """
@@ -134,13 +130,13 @@ class PhotoEnhancementEnv(gym.Env):
             self.batch_size = batch_size
             self.training_mode = training_mode
             self.pre_encode = pre_encode
-            self.dataloader = dataloader
+            self.dataloader = create_dataloaders(batch_size,train=training_mode,image_size=imsize,pre_encode=pre_encode)
             self.edit_sliders = edit_sliders 
             self.photo_editor = PhotoEditor(sliders=edit_sliders)
             self.num_parameters = self.photo_editor.num_parameters
-
+            self.features_size = features_size
             self.iter_dataloader_count = 0 #counts number of batch of samples seen by the agent
-            self.iter_dataloader = iter(self.dataloader) #iterator over the dataloader 
+            self.iter_dataloader = iter(self.dataloader) #iterator over the dataloader
             if self.pre_encode:
                 self.observation_space= Observation_Space(
                         shape = self.dataloader.dataset.encoded_source.shape,
@@ -149,21 +145,22 @@ class PhotoEnhancementEnv(gym.Env):
                 self.action_space = Action_Space(
                     high = 1,
                     low = -1,
-                    shape = (self.batch_size,self.num_parameters),
+                    shape = (self.batch_size, self.num_parameters),
                     dtype = torch.float32
                 )
             else:
                 self.observation_space= Observation_Space(
-                        shape = (self.batch_size,FEATURES_SIZE),
+                        shape = (self.batch_size, self.features_size),
                         dtype = torch.float32)
                                                           
                 self.action_space = Action_Space(
                     high = 1,
                     low = -1,
-                    shape = (self.batch_size,self.num_parameters),
+                    shape = (self.batch_size, self.num_parameters),
                     dtype = torch.float32
                 )
-
+            if self.pre_encode :
+                self.image_encoder = ResnetEncoder()
                 
 
             self.done_threshold = done_threshold 
@@ -231,14 +228,14 @@ class PhotoEnhancementEnv(gym.Env):
         rmse = enhanced-target
         rmse = torch.pow(rmse,2).mean(1)
         rmse = torch.sqrt(rmse)
-        # if (rmse==0).all():
-        #     return torch.zeros(enhanced[0])
-        # else:
-        #     psnr = ((20 * torch.log10(1/ rmse))-50)/50            
-        #     rewards = psnr
-        #     return rewards
-        rewards = -rmse
-        return rewards
+        if (rmse==0).all():
+            return torch.zeros(enhanced[0])
+        else:
+            psnr = ((20 * torch.log10(1/ rmse))-50)        
+            rewards = psnr
+            return rewards
+        # rewards = -rmse
+        # return rewards
 
     def check_done(self,rewards:torch.Tensor,threshold:float):
         """
@@ -282,7 +279,7 @@ class PhotoEnhancementEnv(gym.Env):
 
             enhanced_image = self.photo_editor(source_images.permute(0,2,3,1),batch_actions) #(B,H,W,3)
             enhanced_image = enhanced_image.permute(0,3,1,2) 
-            encoded_enhanced_images = image_encoder.encode(enhanced_image).cpu()
+            encoded_enhanced_images = self.image_encoder.encode(enhanced_image).cpu()
             rewards = self.compute_rewards(enhanced_image,target_images)
 
             done = self.check_done(rewards,self.done_threshold)
@@ -309,21 +306,21 @@ class PhotoEnhancementEnv(gym.Env):
 
             rewards = self.compute_rewards(enhanced_image,target_images)
             done = self.check_done(rewards,self.done_threshold)      
-            rewards[done]+=1
+            rewards[done]+=10
             self.state['enhanced_image'] = enhanced_image
             batch_observation =  enhanced_image
         return batch_observation, rewards, done
 
 
 class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
-
-    def __init__(self,
-                 batch_size=TEST_BATCH_SIZE,
-                 logger=None,
-                 dataloader = test_dataloader,
-                 ):
-        super(PhotoEnhancementEnvTest,self).__init__(batch_size = batch_size,
-                                                 logger = logger,
-                                                 dataloader = dataloader,
-                                                 )
-        
+    def __init__(self, batch_size, imsize, done_threshold, pre_encode, edit_sliders, features_size, logger=None):
+        super(PhotoEnhancementEnvTest, self).__init__(
+            batch_size=batch_size,
+            imsize=imsize,
+            training_mode=False,
+            done_threshold=done_threshold,
+            pre_encode=pre_encode,
+            edit_sliders=edit_sliders,
+            features_size=features_size,
+            logger=logger
+        )

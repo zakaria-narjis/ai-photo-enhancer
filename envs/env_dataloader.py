@@ -48,10 +48,12 @@ class PhotoEnhancement(Dataset):
             return source_image,target_image
     
 
-def create_dataloaders(train_batch_size,test_batch_size,image_size,pre_encode= True,shuffle=True):
-    test_dataset = PhotoEnhancement(image_size=image_size,mode='test', pre_encode = pre_encode)
-    train_dataset = PhotoEnhancement(image_size=image_size,mode='train',pre_encode=pre_encode) 
-    train_dataloader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle = shuffle)
-    test_dataloader = DataLoader(test_dataset, batch_size=test_batch_size , shuffle = shuffle)
+def create_dataloaders(batch_size,image_size,train=True,pre_encode= True,shuffle=True):
+    if train:    
+        train_dataset = PhotoEnhancement(image_size=image_size,mode='train',pre_encode=pre_encode)
+        dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle = shuffle)
+    else: 
+        test_dataset = PhotoEnhancement(image_size=image_size,mode='test', pre_encode = pre_encode)
+        dataloader = DataLoader(test_dataset, batch_size=batch_size , shuffle = shuffle)
 
-    return train_dataloader,test_dataloader
+    return dataloader
