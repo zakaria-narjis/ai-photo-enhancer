@@ -194,6 +194,7 @@ class PhotoEnhancementEnv(gym.Env):
 
         else:
             source_image,target_image = next(self.iter_dataloader) 
+            self.iter_dataloader_count += 1
         #  self.sub_env_running = torch.Tensor([index for index in range(source_image.shape[0])]).to(torch.int32)
             self.state = {
                 'enhanced_image':source_image/255.0,                     
@@ -290,7 +291,7 @@ class PhotoEnhancementEnv(gym.Env):
             rewards = self.compute_rewards(enhanced_image,target_images)
             done = self.check_done(rewards,self.done_threshold)           
             rewards[done]+=50 
-            
+
             self.state['enhanced_image'] = enhanced_image
             batch_observation =  enhanced_image
         return batch_observation, rewards, done
