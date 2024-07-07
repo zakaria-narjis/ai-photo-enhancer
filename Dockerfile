@@ -22,14 +22,12 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
 
 ENV PATH=/opt/conda/bin:$PATH
 
-# Install missing dependencies
-RUN conda install -y chardet charset_normalizer archspec
 
 # Copy environment.yml to the working directory
-COPY environment.yaml /tmp/environment.yaml
+COPY environment.yml /tmp/environment.yml
 
 # Create the Conda environment without plugins
-RUN CONDA_NO_PLUGINS=true conda env create -f /tmp/environment.yaml
+RUN CONDA_NO_PLUGINS=true conda env create -f /tmp/environment.yml
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
