@@ -29,14 +29,14 @@ except RuntimeError:
 
 # SLIDERS_TO_USE = ["contrast","exposure","shadows","highlights","whites"]
 
-logging.basicConfig(
-    filename='photo_enhancement.log',  # Name of the log file
-    filemode='w',                      # Mode to write (w) and overwrite if it exists
-    level=logging.DEBUG,               # Set level to DEBUG to capture all messages
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Format of the log messages
-    datefmt='%Y-%m-%d %H:%M:%S'        # Date format
-)
-logging.disable(logging.CRITICAL)
+# logging.basicConfig(
+#     filename='photo_enhancement.log',  # Name of the log file
+#     filemode='w',                      # Mode to write (w) and overwrite if it exists
+#     level=logging.DEBUG,               # Set level to DEBUG to capture all messages
+#     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Format of the log messages
+#     datefmt='%Y-%m-%d %H:%M:%S'        # Date format
+# )
+# logging.disable(logging.CRITICAL)
 
 
 def sample_near_values_batch(tensor, batch_size, std_dev=0.05, clip_min=0.0, clip_max=1.0):
@@ -176,11 +176,11 @@ class PhotoEnhancementEnv(gym.Env):
         """
             Reset dataloader when the agent went through the whole samples
         """
-        self.logger.debug('reset dataloader')
+        # self.logger.debug('reset dataloader')
         self.iter_dataloader = iter(self.dataloader)
 
     def reset (self):
-        self.logger.debug('reset the episode')
+        # self.logger.debug('reset the episode')
         if self.iter_dataloader_count == len(self.iter_dataloader):
             self.reset_data_iterator()
             self.iter_dataloader_count = 0
