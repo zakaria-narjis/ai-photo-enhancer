@@ -52,5 +52,5 @@ def main():
     print(f'Mean PSNR on MIT 5K Dataset {round(np.mean(PSNRS),2)}')
     print(f'Mean SSIM on MIT 5K Dataset {round(np.mean(SSIM),3)}')
 
-if __name__ == "main":
+if __name__ == "__main__":
     main()

@@ -34,7 +34,8 @@ class Config(object):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('config', help='YAML config file')
+    parser.add_argument('sac_config', help='YAML config file')
+    parser.add_argument('env_config', help='YAML config file')
     parser.add_argument('outdir', type=str, help='directory to put training log',default='experiments/')
     parser.add_argument('save_model',type=bool, default=True)
     parser.add_argument('--logger_level', type=int, default=logging.INFO)
@@ -44,14 +45,22 @@ def main():
     logging.basicConfig(level=args.logger_level)
     logger.debug('reset dataloader')
 
-    with open("configs/hyperparameters.yaml") as f:
+    # with open("configs/hyperparameters.yaml") as f:
+    #     config_dict =yaml.load(f, Loader=yaml.FullLoader)
+
+    # with open("configs/config.yaml") as f:
+    #     env_config_dict =yaml.load(f, Loader=yaml.FullLoader)
+    with open(args.sac_config) as f:
         config_dict =yaml.load(f, Loader=yaml.FullLoader)
 
-    with open("configs/config.yaml") as f:
+    with open(args.env_config) as f:
         env_config_dict =yaml.load(f, Loader=yaml.FullLoader)
-    run_name = f"{sac_config.exp_name}__{sac_config.seed}__{getdatetime()}"  
+
     sac_config = Config(config_dict)
     env_config = Config(env_config_dict)
+    
+    run_name = f"{sac_config.exp_name}__{sac_config.seed}__{getdatetime()}"  
+
 
     with open(os.path.join(args.outdir, f'{run_name}/configs/sac_config.yaml'), 'w') as f:
         yaml.dump(config_dict, f, indent=4, default_flow_style=False)
@@ -151,6 +160,6 @@ def main():
                 save_critic_head(agent.qf2, '{run_name}/models/qf2_head.pth')
 
 
-if __name__=="main":
+if __name__=="__main__":
 
     main()
