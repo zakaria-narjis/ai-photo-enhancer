@@ -32,18 +32,29 @@ class Config(object):
     def __init__(self, dictionary):
         self.__dict__.update(dictionary)
 
+def make_dirs_and_open(file_path, mode):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    return open(file_path, mode)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('sac_config', help='YAML config file')
     parser.add_argument('env_config', help='YAML config file')
-    parser.add_argument('outdir', type=str, help='directory to put training log',default='experiments/')
-    parser.add_argument('save_model',type=bool, default=True)
+    parser.add_argument('outdir', nargs='?', type=str, help='directory to put training log',default='experiments/')
+    parser.add_argument('save_model', nargs='?',type=bool, default=True)
     parser.add_argument('--logger_level', type=int, default=logging.INFO)
 
     args = parser.parse_args()
     logger = logging.getLogger(__name__)
-    logging.basicConfig(level=args.logger_level)
-    logger.debug('reset dataloader')
+    
+    # Configure logging to console
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(args.logger_level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    logger.setLevel(args.logger_level)
 
     # with open("configs/hyperparameters.yaml") as f:
     #     config_dict =yaml.load(f, Loader=yaml.FullLoader)
@@ -58,14 +69,15 @@ def main():
 
     sac_config = Config(config_dict)
     env_config = Config(env_config_dict)
-    
+
     run_name = f"{sac_config.exp_name}__{sac_config.seed}__{getdatetime()}"  
+    run_dir = os.path.join(args.outdir, run_name)
 
 
-    with open(os.path.join(args.outdir, f'{run_name}/configs/sac_config.yaml'), 'w') as f:
+    with make_dirs_and_open(os.path.join(run_dir, 'configs/sac_config.yaml'), 'w') as f:
         yaml.dump(config_dict, f, indent=4, default_flow_style=False)
    
-    with open(os.path.join(args.outdir, f'{run_name}/configs/env_config.yaml'), 'w') as f:
+    with make_dirs_and_open(os.path.join(run_dir, 'configs/env_config.yaml'), 'w') as f:
         yaml.dump(env_config_dict, f, indent=4, default_flow_style=False)
 
 
@@ -98,10 +110,10 @@ def main():
                         logger=None
     )
 
-    logger.debug(f'Sliders used {env.edit_sliders}')
-    logger.debug(f'Number of sliders used { env.num_parameters}')
-    logger.debug(f'Sliders used {test_env .edit_sliders}')
-    logger.debug(f'Number of sliders used {test_env .num_parameters}')
+    logger.info(f'Sliders used {env.edit_sliders}')
+    logger.info(f'Number of sliders used { env.num_parameters}')
+    logger.info(f'Sliders used {test_env .edit_sliders}')
+    logger.info(f'Number of sliders used {test_env .num_parameters}')
 
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
@@ -112,9 +124,10 @@ def main():
         "env_parameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(env_config).items()])),
     )
-    try:
+    try:    
         agent = SAC(env,sac_config,writer)
         agent.start_time = time.time()
+        logger.info(f'Start Training at {getdatetime()}')
         for i in range(sac_config.total_timesteps):
             episode_count = 0 
             agent.reset_env()
@@ -146,18 +159,25 @@ def main():
                     agent.writer.add_images("test_images",test_env.state['enhanced_image'][:n_images],1)
                     agent.writer.add_images("test_images",test_env.state['target_image'][:n_images],2)
                 agent.backbone.train()
+        logger.info(f'Ended training at {getdatetime()}')
         if args.save_model:
-            torch.save(agent.backbone.state_dict(), '{run_name}/models/backbone.pth')
-            save_actor_head(agent.actor, '{run_name}/models/actor_head.pth')
-            save_critic_head(agent.qf1, '{run_name}/models/qf1_head.pth')
-            save_critic_head(agent.qf2, '{run_name}/models/qf2_head.pth')
+                models_dir = os.path.join(run_dir, 'models')
+                os.makedirs(models_dir, exist_ok=True)
+                logger.info(f"Saving models in {models_dir}")
+                torch.save(agent.backbone.state_dict(), run_dir+'/models/backbone.pth')
+                save_actor_head(agent.actor, run_dir+'/models/actor_head.pth')
+                save_critic_head(agent.qf1, run_dir+'/models/qf1_head.pth')
+                save_critic_head(agent.qf2, run_dir+'/models/qf2_head.pth')
     except:
         if agent.global_step>1000:
             if args.save_model:
-                torch.save(agent.backbone.state_dict(), '{run_name}/models/backbone.pth')
-                save_actor_head(agent.actor, '{run_name}/models/actor_head.pth')
-                save_critic_head(agent.qf1, '{run_name}/models/qf1_head.pth')
-                save_critic_head(agent.qf2, '{run_name}/models/qf2_head.pth')
+                models_dir = os.path.join(run_dir, 'models')
+                os.makedirs(models_dir, exist_ok=True)
+                logger.info(f"Saving models after exception in {models_dir}")
+                torch.save(agent.backbone.state_dict(), run_dir+'/models/backbone.pth')
+                save_actor_head(agent.actor, run_dir+'/models/actor_head.pth')
+                save_critic_head(agent.qf1, run_dir+'/models/qf1_head.pth')
+                save_critic_head(agent.qf2, run_dir+'/models/qf2_head.pth')
 
 
 if __name__=="__main__":
