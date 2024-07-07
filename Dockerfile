@@ -1,4 +1,4 @@
-FROM  nvcr.io/nvidia/pytorch:24.01-py3
+FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
 
 ENV PYTHONUNBUFFERED=1
 
