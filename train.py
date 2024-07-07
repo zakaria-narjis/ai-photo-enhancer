@@ -13,6 +13,7 @@ from envs.new_edit_photo import PhotoEditor
 import multiprocessing as mp
 import argparse
 import logging
+from sac.utils import *
 try:
     mp.set_start_method('spawn', force=True)
 except RuntimeError:
@@ -35,8 +36,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('config', help='YAML config file')
     parser.add_argument('outdir', type=str, help='directory to put training log',default='experiments/')
-    parser.add_argument('save_actor',type=bool, default=True)
-    parser.add_argument('save_critics',type=bool, default=False)
+    parser.add_argument('save_model',type=bool, default=True)
     parser.add_argument('--logger_level', type=int, default=logging.INFO)
 
     args = parser.parse_args()
@@ -53,10 +53,10 @@ def main():
     sac_config = Config(config_dict)
     env_config = Config(env_config_dict)
 
-    with open(os.path.join(args.outdir, f'configs/{run_name}/sac_config.yaml'), 'w') as f:
+    with open(os.path.join(args.outdir, f'{run_name}/configs/sac_config.yaml'), 'w') as f:
         yaml.dump(config_dict, f, indent=4, default_flow_style=False)
    
-    with open(os.path.join(args.outdir, f'configs/{run_name}/env_config.yaml'), 'w') as f:
+    with open(os.path.join(args.outdir, f'{run_name}/configs/env_config.yaml'), 'w') as f:
         yaml.dump(env_config_dict, f, indent=4, default_flow_style=False)
 
 
@@ -137,15 +137,20 @@ def main():
                     agent.writer.add_images("test_images",test_env.state['enhanced_image'][:n_images],1)
                     agent.writer.add_images("test_images",test_env.state['target_image'][:n_images],2)
                 agent.backbone.train()
-        if args.save_actor:
-            torch.save(agent.actor.state_dict(), args.outdir+f'{run_name}actor_model.pth')
-        if args.save_critics:
-            torch.save(agent.qf1.state_dict(), args.outdir+f'{run_name}critic_model.pth')
-            torch.save(agent.qf1.state_dict(), args.outdir+f'{run_name}critic_model.pth')
+        if args.save_model:
+            torch.save(agent.backbone.state_dict(), '{run_name}/models/backbone.pth')
+            save_actor_head(agent.actor, '{run_name}/models/actor_head.pth')
+            save_critic_head(agent.qf1, '{run_name}/models/qf1_head.pth')
+            save_critic_head(agent.qf2, '{run_name}/models/qf2_head.pth')
     except:
         if agent.global_step>1000:
-            if args.save_actor:
-                torch.save(agent.actor.state_dict(), args.outdir+f'{run_name}actor_model.pth')
-            if args.save_critics:
-                torch.save(agent.qf1.state_dict(), args.outdir+f'{run_name}critic_model.pth')
-                torch.save(agent.qf1.state_dict(), args.outdir+f'{run_name}critic_model.pth')
+            if args.save_model:
+                torch.save(agent.backbone.state_dict(), '{run_name}/models/backbone.pth')
+                save_actor_head(agent.actor, '{run_name}/models/actor_head.pth')
+                save_critic_head(agent.qf1, '{run_name}/models/qf1_head.pth')
+                save_critic_head(agent.qf2, '{run_name}/models/qf2_head.pth')
+
+
+if __name__=="main":
+
+    main()
