@@ -1,8 +1,9 @@
 #!/bin/bash
+set -e
 
-# Activate the Conda environment
+# Activate Conda environment
 source /opt/conda/etc/profile.d/conda.sh
-conda activate your_env_name
+conda activate photoens
 
-# Execute the command provided as arguments to the script
+# Run the main command
 exec "$@"
