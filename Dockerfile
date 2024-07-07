@@ -16,10 +16,10 @@ RUN apt-get update && apt-get install -y \
 
 # Download and install Miniconda
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
-    /bin/bash /tmp/miniconda.sh -b -p /opt/conda && \
+    /bin/bash /tmp/miniconda.sh -b -u -p /opt/conda && \
     rm /tmp/miniconda.sh
 
-# Set path to conda
+
 ENV PATH=/opt/conda/bin:$PATH
 
 # Install missing dependencies
@@ -37,5 +37,3 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-
