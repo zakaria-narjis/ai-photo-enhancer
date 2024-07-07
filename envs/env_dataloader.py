@@ -8,8 +8,6 @@ from .features_extractor import ResnetEncoder
 
 ENCODING_BATCH_SIZE = 128
 
-image_encoder = ResnetEncoder()
-
 class PhotoEnhancement(Dataset):
     """
         Encode dataset images
@@ -21,6 +19,7 @@ class PhotoEnhancement(Dataset):
         self.img_dataloader = DataLoader(self.img_dataset , batch_size=ENCODING_BATCH_SIZE, shuffle=False)
         self.pre_encode = pre_encode
         if self.pre_encode == True:
+            image_encoder = ResnetEncoder()
         #Encoding imgs
             self.encoded_source = []
             self.encoded_target  = []

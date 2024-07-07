@@ -27,7 +27,7 @@ except RuntimeError:
 #                 Sigmoid(), Bgr2Hsv(), AdjustWhites(), AdjustBlacks(), AdjustHighlights(),
 #                 AdjustShadows(), AdjustVibrance(), AdjustSaturation(), Hsv2Bgr(), Photopro2Srgb()]
 
-SLIDERS_TO_USE = ["contrast","exposure","shadows","highlights","whites"]
+# SLIDERS_TO_USE = ["contrast","exposure","shadows","highlights","whites"]
 
 logging.basicConfig(
     filename='photo_enhancement.log',  # Name of the log file
@@ -313,11 +313,11 @@ class PhotoEnhancementEnv(gym.Env):
 
 
 class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
-    def __init__(self, batch_size, imsize, done_threshold, pre_encode, edit_sliders, features_size, logger=None):
+    def __init__(self, batch_size, imsize, done_threshold, pre_encode, edit_sliders, features_size, training_mode=False, logger=None):
         super(PhotoEnhancementEnvTest, self).__init__(
             batch_size=batch_size,
             imsize=imsize,
-            training_mode=False,
+            training_mode=training_mode,
             done_threshold=done_threshold,
             pre_encode=pre_encode,
             edit_sliders=edit_sliders,
