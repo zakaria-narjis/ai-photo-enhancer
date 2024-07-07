@@ -16,9 +16,9 @@ RUN apt-get update && apt-get install -y \
     git \
     && apt-get clean
 
-# Download and install Miniconda
+# Download and update Miniconda
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
-    /bin/bash /tmp/miniconda.sh -b -p /opt/conda && \
+    /bin/bash /tmp/miniconda.sh -b -u -p /opt/conda && \
     rm /tmp/miniconda.sh
 
 # Set environment variables
