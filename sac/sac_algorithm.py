@@ -95,10 +95,21 @@ class SAC:
             batch_size = [batch_obs.shape[0]],
         )
         self.rb.extend(batch_transition)
-
+        self.update()
         # runing_envs = self.env.sub_env_running 
         # self.state =  torch.index_select(next_batch_obs,0,runing_envs).to(self.device)
-
+        return rewards,dones
+    
+    def act_eval(self,obs):
+        self.backbone.eval()
+        self.actor.eval()
+        with torch.no_grad():
+            actions = self.actor.get_action(obs.to(self.device))
+        self.backbone.train()
+        self.actor.train()    
+        return actions
+    
+    def update(self,):
         # ALGO LOGIC: training.
         if self.global_step > self.args.learning_starts:
             data = self.rb.sample(self.args.batch_size).to(self.device)
@@ -167,4 +178,4 @@ class SAC:
                 if self.args.autotune:
                     self.writer.add_scalar("losses/alpha_loss", alpha_loss.item(), self.global_step)
         
-        return rewards,dones
+        
