@@ -20,16 +20,21 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
     rm /tmp/miniconda.sh
 
 
-ENV PATH=/opt/conda/bin:$PATH
+# Update Conda and install missing dependencies
+RUN /opt/conda/bin/conda update -n base -c defaults conda && \
+    /opt/conda/bin/conda install -y chardet charset_normalizer archspec
 
+# Set environment variables
+ENV PATH=/opt/conda/bin:$PATH
+ENV CONDA_NO_PLUGINS=true
 
 # Copy environment.yml to the working directory
 COPY environment.yml /tmp/environment.yml
 
-# Create the Conda environment without plugins
-RUN CONDA_NO_PLUGINS=true conda env create -f /tmp/environment.yml
+# Create the Conda environment using the environment.yml file
+RUN conda env create -f /tmp/environment.yml
 
-# Copy entrypoint script
+# Copy entrypoint script to the appropriate location
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
