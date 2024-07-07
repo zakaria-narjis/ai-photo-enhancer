@@ -37,5 +37,15 @@ SHELL ["conda", "run", "-n", "photoens", "/bin/bash", "-c"]
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+RUN mkdir -p /app/rlenh
+COPY . /app/rlenh/
+WORKDIR /app/rlenh
+
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+# Expose port 6006 for TensorBoard
+EXPOSE 6006
+
+# Set the default command
+CMD ["python", "train.py", "configs/hyperparameters.yaml", "configs/config.yaml"]
