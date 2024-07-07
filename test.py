@@ -18,7 +18,7 @@ class Config(object):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('models_path', help='YAML config file')
-
+    parser.add_argument('--logger_level', type=int, default=logging.INFO)
     args = parser.parse_args()
     logger = logging.getLogger("test")
     
@@ -37,7 +37,7 @@ def main():
     photo_editor = PhotoEditor(inference_config.sliders_to_use)
 
     inference_env = PhotoEnhancementEnvTest(
-                        batch_size=inference_config.test_batch_size,
+                        batch_size=inference_config.batch_size,
                         imsize=inference_config.imsize,
                         training_mode=False,
                         done_threshold=inference_config.threshold_psnr,
@@ -51,7 +51,7 @@ def main():
 
     inf_agent.load_backbone(args.models_path+'backbone.pth')
     inf_agent.load_actor_weights(args.models_path+'actor_head.pth')
-    inf_agent.load_critics_weights(args.models_path+'qf1_head.pth','qf2_head.pth')
+    inf_agent.load_critics_weights(args.models_path+'qf1_head.pth',args.models_path+'qf2_head.pth')
 
     ssim_metric = StructuralSimilarityIndexMeasure()
     test_512 = create_dataloaders(batch_size=1,image_size=64,train=False,pre_encode= False,shuffle=False,resize=False)

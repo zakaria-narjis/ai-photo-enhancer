@@ -1,6 +1,6 @@
-from sac.sac_networks import Actor, SoftQNetwork, Backbone
+from .sac_networks import Actor, SoftQNetwork, Backbone
 import torch
-from utils import *
+from .utils import *
 
 class InferenceAgent:
 
