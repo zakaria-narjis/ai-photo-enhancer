@@ -14,6 +14,7 @@ import multiprocessing as mp
 import argparse
 import logging
 from sac.utils import *
+from tqdm import tqdm
 try:
     mp.set_start_method('spawn', force=True)
 except RuntimeError:
@@ -128,7 +129,7 @@ def main():
         agent = SAC(env,sac_config,writer)
         agent.start_time = time.time()
         logger.info(f'Start Training at {getdatetime()}')
-        for i in range(sac_config.total_timesteps):
+        for i in tqdm(range(sac_config.total_timesteps)):
             episode_count = 0 
             agent.reset_env()
             envs_mean_rewards =[]
@@ -168,7 +169,10 @@ def main():
                 save_actor_head(agent.actor, run_dir+'/models/actor_head.pth')
                 save_critic_head(agent.qf1, run_dir+'/models/qf1_head.pth')
                 save_critic_head(agent.qf2, run_dir+'/models/qf2_head.pth')
-    except:
+
+    except Exception as e:
+        
+        logger.exception("An error occurred during training")
         if agent.global_step>1000:
             if args.save_model:
                 models_dir = os.path.join(run_dir, 'models')

@@ -7,13 +7,29 @@ from sac.sac_inference import InferenceAgent
 import yaml
 from envs.photo_env import PhotoEnhancementEnvTest
 import numpy as np
-
+import argparse
+import logging
+from tqdm import tqdm
 class Config(object):
     def __init__(self, dictionary):
         self.__dict__.update(dictionary)
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('models_path', help='YAML config file')
+
+    args = parser.parse_args()
+    logger = logging.getLogger("test")
+    
+    # Configure logging to console
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(args.logger_level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    logger.setLevel(args.logger_level)
+
     with open("configs/inference_config.yaml") as f:
         inf_config_dict =yaml.load(f, Loader=yaml.FullLoader)
 
@@ -33,6 +49,10 @@ def main():
 
     inf_agent =InferenceAgent(inference_env, inference_config)
 
+    inf_agent.load_backbone(args.models_path+'backbone.pth')
+    inf_agent.load_actor_weights(args.models_path+'actor_head.pth')
+    inf_agent.load_critics_weights(args.models_path+'qf1_head.pth','qf2_head.pth')
+
     ssim_metric = StructuralSimilarityIndexMeasure()
     test_512 = create_dataloaders(batch_size=1,image_size=64,train=False,pre_encode= False,shuffle=False,resize=False)
     transform = transforms.Compose([
@@ -40,7 +60,8 @@ def main():
             ])
     PSNRS = []
     SSIM = []
-    for i,t in test_512:
+    logger.info(f'Testing ...')
+    for i,t in tqdm(test_512):
         input = i/255.0
         target = t/255.0 
         parameters = inf_agent.act(transform(input))
@@ -49,8 +70,8 @@ def main():
         ssim = ssim_metric(enhanced_image.permute(0,3,1,2),target).item()
         PSNRS.append(psnr)
         SSIM.append(ssim)
-    print(f'Mean PSNR on MIT 5K Dataset {round(np.mean(PSNRS),2)}')
-    print(f'Mean SSIM on MIT 5K Dataset {round(np.mean(SSIM),3)}')
+    logger.info(f'Mean PSNR on MIT 5K Dataset {round(np.mean(PSNRS),2)}')
+    logger.info(f'Mean SSIM on MIT 5K Dataset {round(np.mean(SSIM),3)}')
 
 if __name__ == "__main__":
     main()
