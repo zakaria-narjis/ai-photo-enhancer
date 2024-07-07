@@ -64,7 +64,7 @@ def main():
     for i,t in tqdm(test_512):
         input = i/255.0
         target = t/255.0 
-        parameters = inf_agent.act(transform(input))
+        parameters = inf_agent.act(obs=transform(input),deterministic=inference_config.deterministic)
         enhanced_image = photo_editor((input.permute(0,2,3,1)).cpu(),parameters[2].cpu())
         psnr = inference_env.compute_rewards(enhanced_image.permute(0,3,1,2),target).item()+50
         ssim = ssim_metric(enhanced_image.permute(0,3,1,2),target).item()

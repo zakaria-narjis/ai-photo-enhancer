@@ -27,11 +27,26 @@ class InferenceAgent:
         self.qf1.eval()
         self.qf2.eval()
 
-    def act(self,obs):
+    def act(self,obs,deterministic=True):
         with torch.inference_mode():
-            actions = self.actor.get_action(obs.to(self.device))   
-        return actions
-    
+
+            if deterministic:  
+
+                actions = self.actor.get_action(obs.to(self.device))
+                return actions
+
+            else:
+                actions = self.actor.get_action(obs.to(self.device))
+                best_value = self.critic(obs,actions[2])
+                best_actions = actions 
+                for sample in range(self.args.n_actions_samples):
+                    actions = self.actor.get_action(obs.to(self.device))
+                    value = self.critic(obs,actions[0])
+                    if value> best_value:
+                        best_value = value
+                        best_actions= actions
+                return best_actions
+         
     def critic(self,obs,actions):
         with torch.inference_mode():
             qf1_pi = self.qf1(obs.to(self.device), actions.to(self.device))
