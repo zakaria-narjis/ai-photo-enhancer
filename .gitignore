@@ -163,7 +163,7 @@ cython_debug/
 
 #dataset
 
-src/dataset/expertC
-src/dataset/original
-src/dataset/FiveK
+dataset/expertC
+dataset/original
+dataset/FiveK
 .VSCodeCounter

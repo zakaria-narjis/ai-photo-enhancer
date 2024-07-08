@@ -3,13 +3,11 @@ import time
 import random
 import numpy as np
 import torch
-import os
 from torch.utils.tensorboard import SummaryWriter
 import time
 from envs.photo_env import PhotoEnhancementEnv
 from envs.photo_env import PhotoEnhancementEnvTest
 from sac.sac_algorithm import SAC
-from envs.new_edit_photo import PhotoEditor
 import multiprocessing as mp
 import argparse
 import logging
@@ -21,13 +19,21 @@ except RuntimeError:
     pass  
 
 from datetime import datetime
+import os
+from pathlib import Path
+import re 
+
+# def getdatetime():
+#     c = datetime.now()
+#     rounded_seconds = round(c.second + c.microsecond / 1e6, 2)
+#     formatted_time = c.strftime('%Y-%m-%d_%H:%M:') + f'{rounded_seconds:05.2f}'
+#     return formatted_time
+
+def sanitize_filename(name):
+    return re.sub(r'[^\w\-_\. ]', '_', name)
 
 def getdatetime():
-    c = datetime.now()
-    rounded_seconds = round(c.second + c.microsecond / 1e6, 2)
-    formatted_time = c.strftime('%Y-%m-%d_%H:%M:') + f'{rounded_seconds:05.2f}'
-    return formatted_time
-
+    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 class Config(object):
     def __init__(self, dictionary):
@@ -39,10 +45,12 @@ def make_dirs_and_open(file_path, mode):
 
 
 def main():
+    current_dir = Path(__file__).parent.absolute()
     parser = argparse.ArgumentParser()
-    parser.add_argument('sac_config', help='YAML config file')
-    parser.add_argument('env_config', help='YAML config file')
-    parser.add_argument('outdir', nargs='?', type=str, help='directory to put training log',default='experiments/')
+    parser.add_argument('experiment_tag', help='experiment tag')
+    parser.add_argument('sac_config', help='YAML sac config file')
+    parser.add_argument('env_config', help='YAML env config file')
+    parser.add_argument('outdir', nargs='?', type=str, help='directory to put experiment results',default=os.path.join(current_dir.parent, 'experiments/runs'))
     parser.add_argument('save_model', nargs='?',type=bool, default=True)
     parser.add_argument('--logger_level', type=int, default=logging.INFO)
 
@@ -71,8 +79,14 @@ def main():
     sac_config = Config(config_dict)
     env_config = Config(env_config_dict)
 
-    run_name = f"{sac_config.exp_name}__{sac_config.seed}__{getdatetime()}"  
-    run_dir = os.path.join(args.outdir, run_name)
+    exp_name = sanitize_filename(sac_config.exp_name)
+    exp_tag = sanitize_filename(args.experiment_tag)
+    run_name = f"{exp_name}__{exp_tag}__{getdatetime()}"
+    run_name = run_name[:255]  # Truncate to 255 characters to avoid potential issues with very long paths
+    run_dir = os.path.join(args.outdir, run_name)  
+
+    # run_name = f"{sac_config.exp_name}__{args.experiment_tag}__{getdatetime()}"  
+    # run_dir = os.path.join(args.outdir, run_name)
 
 
     with make_dirs_and_open(os.path.join(run_dir, 'configs/sac_config.yaml'), 'w') as f:
@@ -116,7 +130,7 @@ def main():
     logger.info(f'Sliders used {test_env .edit_sliders}')
     logger.info(f'Number of sliders used {test_env .num_parameters}')
 
-    writer = SummaryWriter(f"runs/{run_name}")
+    writer = SummaryWriter(run_dir)
     writer.add_text(
         "SAC_hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(sac_config).items()])),
