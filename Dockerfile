@@ -4,10 +4,13 @@ FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
 # Set environment variable to make Python output unbuffered
 ENV PYTHONUNBUFFERED=1
 
-# Install additional dependencies via apt-get if needed
+# Install additional dependencies via apt-get
 RUN apt-get update && apt-get install -y \
     git \
-    && apt-get clean
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Ensure conda is in the PATH
 ENV PATH=/opt/conda/bin:$PATH
