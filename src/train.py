@@ -112,6 +112,7 @@ def main():
                         pre_encode=False,
                         edit_sliders=env_config.sliders_to_use,
                         features_size=env_config.features_size,
+                        discretize=env_config.discretize,
                         logger=None
     )
     test_env = PhotoEnhancementEnvTest(
@@ -122,6 +123,7 @@ def main():
                         pre_encode=False,
                         edit_sliders=env_config.sliders_to_use,
                         features_size=env_config.features_size,
+                        discretize=env_config.discretize,
                         logger=None
     )
 

@@ -112,6 +112,7 @@ class PhotoEnhancementEnv(gym.Env):
                     pre_encode ,
                     edit_sliders ,
                     features_size ,
+                    discretize,
                     logger=None
                     ):
             super().__init__()
@@ -313,7 +314,7 @@ class PhotoEnhancementEnv(gym.Env):
 
 
 class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
-    def __init__(self, batch_size, imsize, done_threshold, pre_encode, edit_sliders, features_size, training_mode=False, logger=None):
+    def __init__(self, batch_size, imsize, done_threshold, pre_encode, edit_sliders, features_size, discretize, training_mode=False, logger=None):
         super(PhotoEnhancementEnvTest, self).__init__(
             batch_size=batch_size,
             imsize=imsize,
@@ -322,5 +323,6 @@ class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
             pre_encode=pre_encode,
             edit_sliders=edit_sliders,
             features_size=features_size,
+            discretize=discretize,
             logger=logger
         )

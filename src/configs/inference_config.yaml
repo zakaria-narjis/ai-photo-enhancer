@@ -7,5 +7,6 @@ threshold_rmse: -0.01
 sliders_to_use : ["contrast","exposure","shadows","highlights","whites"]
 deterministic: False
 n_actions_samples: 5
-
+discretize_step: 0.01
+discretize : True
 features_size : 512 #useless

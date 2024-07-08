@@ -9,6 +9,8 @@ from envs.photo_env import PhotoEnhancementEnvTest
 import numpy as np
 import argparse
 import logging
+import os
+from pathlib import Path
 from tqdm import tqdm
 class Config(object):
     def __init__(self, dictionary):
@@ -16,6 +18,7 @@ class Config(object):
 
 
 def main():
+    current_dir = Path(__file__).parent.absolute()
     parser = argparse.ArgumentParser()
     parser.add_argument('models_path', help='YAML config file')
     parser.add_argument('--logger_level', type=int, default=logging.INFO)
@@ -30,7 +33,7 @@ def main():
     logger.addHandler(console_handler)
     logger.setLevel(args.logger_level)
 
-    with open("configs/inference_config.yaml") as f:
+    with open(os.path.join(current_dir,"configs/inference_config.yaml")) as f:
         inf_config_dict =yaml.load(f, Loader=yaml.FullLoader)
 
     inference_config = Config(inf_config_dict)
@@ -44,6 +47,7 @@ def main():
                         pre_encode=False,
                         edit_sliders=inference_config.sliders_to_use,
                         features_size=inference_config.features_size,
+                        discretize=inference_config.discretize,
                         logger=None
     )
 
