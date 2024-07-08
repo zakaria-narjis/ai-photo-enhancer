@@ -37,8 +37,12 @@ SHELL ["conda", "run", "-n", "photoens", "/bin/bash", "-c"]
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-RUN mkdir -p /app/rlenh
-COPY . /app/rlenh/
+# Create necessary directories
+RUN mkdir -p /app/rlenh/src /app/rlenh/experiments /app/rlenh/dataset
+
+# Copy only the src directory
+COPY src /app/rlenh/src/
+
 WORKDIR /app/rlenh
 
 # Set the entrypoint
@@ -48,4 +52,4 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 EXPOSE 6006
 
 # Set the default command
-CMD ["python", "train.py", "configs/hyperparameters.yaml", "configs/config.yaml"]
+CMD ["python", "src/train.py", "solos", "experiments/configs/hyperparameters.yaml", "experiments/configs/config.yaml"]
