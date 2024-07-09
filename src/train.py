@@ -12,7 +12,7 @@ import multiprocessing as mp
 import argparse
 import logging
 from sac.utils import *
-from tqdm import tqdm
+from tqdm.auto import tqdm
 try:
     mp.set_start_method('spawn', force=True)
 except RuntimeError:
