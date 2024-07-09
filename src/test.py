@@ -66,7 +66,7 @@ def main():
     PSNRS = []
     SSIM = []
     logger.info(f'Testing ...')
-    for i,t in tqdm(test_512):
+    for i,t in tqdm(test_512, position=0, leave=True):
         input = i/255.0
         target = t/255.0 
         parameters = inf_agent.act(obs=transform(input),deterministic=inference_config.deterministic)

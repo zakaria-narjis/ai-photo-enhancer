@@ -24,7 +24,7 @@ class PhotoEnhancement(Dataset):
             self.encoded_source = []
             self.encoded_target  = []
             print(f'Encoding {mode}ing data ...')
-            for source,target in tqdm(self.img_dataloader):
+            for source,target in tqdm(self.img_dataloader, position=0, leave=True):
                 self.encoded_source.append(image_encoder.encode(source/255.0).cpu())
                 self.encoded_target.append(image_encoder.encode(target/255.0).cpu())
             print('finished...')   

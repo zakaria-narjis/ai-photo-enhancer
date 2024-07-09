@@ -147,7 +147,7 @@ def main():
         agent = SAC(env,sac_config,writer)
         agent.start_time = time.time()
         logger.info(f'Start Training at {getdatetime()}')
-        for i in tqdm(range(sac_config.total_timesteps)):
+        for i in tqdm(range(sac_config.total_timesteps), position=0, leave=True):
             episode_count = 0 
             agent.reset_env()
             envs_mean_rewards =[]
