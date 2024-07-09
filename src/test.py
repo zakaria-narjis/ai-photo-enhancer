@@ -48,6 +48,7 @@ def main():
                         edit_sliders=inference_config.sliders_to_use,
                         features_size=inference_config.features_size,
                         discretize=inference_config.discretize,
+                        discretize_step= inference_config.discretize_step,
                         logger=None
     )
 

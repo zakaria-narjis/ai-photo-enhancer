@@ -113,6 +113,7 @@ class PhotoEnhancementEnv(gym.Env):
                     edit_sliders ,
                     features_size ,
                     discretize,
+                    discretize_step,
                     logger=None
                     ):
             super().__init__()
@@ -162,7 +163,8 @@ class PhotoEnhancementEnv(gym.Env):
                 )
             if self.pre_encode :
                 self.image_encoder = ResnetEncoder()
-                
+            self.discretize=discretize
+            self.discretize_step = discretize_step    
 
             self.done_threshold = done_threshold 
             self.target_images = None # Batch of images (B,3,H,W) of target images (ground_truth)
@@ -264,6 +266,10 @@ class PhotoEnhancementEnv(gym.Env):
             done: list of Bool True if the agent reached acceptable performance False not yet
             info : dict information 
         """
+        
+        if self.discretize :
+            batch_actions = torch.round((batch_actions+1)/self.discretize_step)*self.discretize_step-1
+
         if self.pre_encode:
             #update state
             self.state['source_image'] = torch.index_select(self.state['source_image'],0,self.sub_env_running)
@@ -314,7 +320,7 @@ class PhotoEnhancementEnv(gym.Env):
 
 
 class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
-    def __init__(self, batch_size, imsize, done_threshold, pre_encode, edit_sliders, features_size, discretize, training_mode=False, logger=None):
+    def __init__(self, batch_size, imsize, done_threshold, pre_encode, edit_sliders, features_size, discretize, discretize_step,training_mode=False, logger=None):
         super(PhotoEnhancementEnvTest, self).__init__(
             batch_size=batch_size,
             imsize=imsize,
@@ -324,5 +330,6 @@ class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
             edit_sliders=edit_sliders,
             features_size=features_size,
             discretize=discretize,
+            discretize_step=discretize_step,
             logger=logger
         )

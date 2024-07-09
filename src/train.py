@@ -113,6 +113,7 @@ def main():
                         edit_sliders=env_config.sliders_to_use,
                         features_size=env_config.features_size,
                         discretize=env_config.discretize,
+                        discretize_step= env_config.discretize_step,
                         logger=None
     )
     test_env = PhotoEnhancementEnvTest(
@@ -124,6 +125,7 @@ def main():
                         edit_sliders=env_config.sliders_to_use,
                         features_size=env_config.features_size,
                         discretize=env_config.discretize,
+                        discretize_step = env_config.discretize_step,
                         logger=None
     )
 

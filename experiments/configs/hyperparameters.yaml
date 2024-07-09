@@ -11,7 +11,7 @@ track: false
 
 
 # Algorithm specific arguments
-total_timesteps: 20
+total_timesteps: 40000
 #total timesteps of the experiments#
 buffer_size: 40000
 #the replay memory buffer size#
@@ -21,7 +21,7 @@ tau: 0.005
 #target smoothing coefficient (default: 0.005)#
 batch_size: 32
 #the batch size of sample from the reply memory#
-learning_starts: 10
+learning_starts: 600
 #timestep to start learning#
 policy_lr: 0.0003
 #the learning rate of the policy network optimizer#
