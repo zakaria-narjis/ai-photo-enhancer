@@ -446,9 +446,9 @@ class PhotoEditor():
                 SigmoidInverse(), AdjustExposure(), AdjustTemp(), AdjustTint(),
                 Sigmoid(), Bgr2Hsv(), AdjustWhites(), AdjustBlacks(), AdjustHighlights(),
                 AdjustShadows(), AdjustVibrance(), AdjustSaturation(), Hsv2Bgr(), Photopro2Srgb()]
-        self.sliders = sliders
+        self.sliders = 'all'
         self.num_parameters = 0
-        if sliders==None:
+        if sliders=='all':
             for edit_func in self.edit_funcs:
                 self.num_parameters += edit_func.num_parameters
         else:
@@ -467,7 +467,7 @@ class PhotoEditor():
 
         for edit_func in self.edit_funcs:
 
-            if self.sliders==None:
+            if self.sliders=='all':
 
                 if edit_func.num_parameters == 0:
                     editted_images = edit_func(editted_images)              
