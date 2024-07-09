@@ -2,15 +2,17 @@ import os
 import gdown
 import zipfile
 import shutil
+from pathlib import Path
 
 def download_and_prepare_dataset():
     # URL of the Google Drive file
     url = "https://drive.google.com/uc?id=11HEUmchFXyepI4v3dhjnDnmhW_DgwfRR"
     
     # Create dataset directory if it doesn't exist
-    dataset_dir = "FiveK"
+    current_dir = Path(__file__).parent.absolute()
+    dataset_dir = os.path.join(current_dir,"FiveK")
     os.makedirs(dataset_dir, exist_ok=True)
-    
+
     # Download the zip file
     zip_path = os.path.join(dataset_dir, "FiveK.zip")
     gdown.download(url, zip_path, quiet=False)
