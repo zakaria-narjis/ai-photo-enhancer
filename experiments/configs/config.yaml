@@ -6,7 +6,8 @@ train_batch_size : 32 #Number of sub env for training
 psnr_reward : True
 threshold_psnr: -25
 threshold_rmse: -0.01
-sliders_to_use : ["contrast","exposure","shadows","highlights","whites"]
+sliders_to_use : "all"
 features_size : 512
 discretize_step: 0.01
 discretize : True
+# ["contrast","exposure","shadows","highlights","whites"]
