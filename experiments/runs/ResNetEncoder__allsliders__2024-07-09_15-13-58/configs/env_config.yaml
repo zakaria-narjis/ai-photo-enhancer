@@ -1,0 +1,12 @@
+discretize: true
+discretize_step: 0.01
+features_size: 512
+imsize: 64
+pre_encode: true
+psnr_reward: true
+sliders_to_use: all
+test_batch_size: 500
+threshold: -70
+threshold_psnr: -25
+threshold_rmse: -0.01
+train_batch_size: 32
