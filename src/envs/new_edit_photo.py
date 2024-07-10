@@ -441,12 +441,12 @@ class Photopro2Srgb:
         return srgb
     
 class PhotoEditor():
-    def __init__(self,sliders= None):
+    def __init__(self,sliders= 'all'):
         self.edit_funcs = [Srgb2Photopro(), AdjustDehaze(), AdjustClarity(), AdjustContrast(),
                 SigmoidInverse(), AdjustExposure(), AdjustTemp(), AdjustTint(),
                 Sigmoid(), Bgr2Hsv(), AdjustWhites(), AdjustBlacks(), AdjustHighlights(),
                 AdjustShadows(), AdjustVibrance(), AdjustSaturation(), Hsv2Bgr(), Photopro2Srgb()]
-        self.sliders = 'all'
+        self.sliders = sliders
         self.num_parameters = 0
         if sliders=='all':
             for edit_func in self.edit_funcs:
@@ -461,10 +461,8 @@ class PhotoEditor():
     def __call__(self, images, parameters):
         editted_images = images.clone()
         num_parameters = 0
-
         assert images.shape[-1]==3 #make sure that the image shape is (B,H,W,C)
         assert images.dim()==4 #make sure that the image is batched
-
         for edit_func in self.edit_funcs:
 
             if self.sliders=='all':
