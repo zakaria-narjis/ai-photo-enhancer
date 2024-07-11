@@ -4,7 +4,7 @@ seed: 1
 #seed of the experiment#
 torch_deterministic: true
 #if toggled, `torch.backends.cudnn.deterministic=False`#
-device: "cuda:1"
+device: "cuda:15"
 #if toggled, cuda will be enabled by default#rue
 track: false
 #if toggled, this experiment will be tracked with Weights and Biases#
