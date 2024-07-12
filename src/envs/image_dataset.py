@@ -26,8 +26,8 @@ class FiveKDataset(Dataset):
         if augment_data:
             self.transform = transforms.Compose([
                 v2.Resize(size = (image_size,image_size), interpolation= transforms.InterpolationMode.BICUBIC),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomVerticalFlip(p=0.5)
+                v2.RandomHorizontalFlip(p=0.5),
+                v2.RandomVerticalFlip(p=0.5)
             ])
         else:
             self.transform = transforms.Compose([
@@ -45,8 +45,7 @@ class FiveKDataset(Dataset):
         source = read_image(self.IMGS_PATH+'/input/'+source_path)
         target = read_image(self.IMGS_PATH+'/target/'+source_path)
         if self.resize:
-            source = self.transform(source)
-            target = self.transform(target)
+            source,target = self.transform(source,target)
         # source = self.transform(Image.open(ORIGINAL_FOLDER+source_path))
 
         return source, target 
