@@ -1,0 +1,25 @@
+What kind of photo is this? If unsure, please select the leftmost the matches,
+- Outdoor
+- Hard to tell
+- Indoor
+
+What kind of light source lights up this photograph? if unsure, pick "Mixed".
+- Outdoor light - sun or sky
+- Artificial light - lamps, street lights, etc
+- Mixed light - different types of light source light up large
+portions of the photo
+
+What is the subject of this photograph? If unsure, please select the
+first one that matches.
+- Person(s)
+- Animal(s)
+- Man-made objects - buildings, cars, sculptures, bridges, streets, etc
+- Landscape - sky, clouds, trees, flowers, mountains, valleys, ocean, fog, etc
+- Abstract - patterns, shapes, colors
+
+When was this photo taken? Answer only if immediately obvious from the
+photo, otherwise leave as "Hard to tell"
+- Day
+- Night
+- Dawn or Dusk
+-Hard to tell
