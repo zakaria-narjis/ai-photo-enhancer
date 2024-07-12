@@ -1,0 +1,18 @@
+discretize: true
+discretize_step: 0.01
+features_size: 512
+imsize: 64
+pre_encode: true
+psnr_reward: true
+sliders_to_use:
+- contrast
+- exposure
+- shadows
+- highlights
+- whites
+- blacks
+test_batch_size: 500
+threshold: -70
+threshold_psnr: -22
+threshold_rmse: -0.01
+train_batch_size: 32
