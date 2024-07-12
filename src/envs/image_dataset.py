@@ -1,10 +1,8 @@
 
-
 from torch.utils.data import Dataset
-
-import torchvision.transforms as transforms
 from torchvision.io import read_image
-from torchvision.transforms import v2
+import torchvision.transforms.v2.functional as F
+import random
 import os
 from pathlib import Path
 
@@ -23,17 +21,8 @@ class FiveKDataset(Dataset):
         else:
             self.IMGS_PATH = os.path.join(current_dir, "..", "..", "dataset", "FiveK", "test")
         self.resize= resize
-        if augment_data:
-            self.transform = transforms.Compose([
-                v2.Resize(size = (image_size,image_size), interpolation= transforms.InterpolationMode.BICUBIC),
-                v2.RandomHorizontalFlip(p=0.5),
-                v2.RandomVerticalFlip(p=0.5)
-            ])
-        else:
-            self.transform = transforms.Compose([
-                v2.Resize(size = (image_size,image_size), interpolation= transforms.InterpolationMode.BICUBIC),
-            ])
-
+        self.image_size =image_size
+        self.augment_data = augment_data
         self.img_files = [filename for filename in os.listdir(self.IMGS_PATH+'/input/')]
 
     def __len__(self):
@@ -45,9 +34,19 @@ class FiveKDataset(Dataset):
         source = read_image(self.IMGS_PATH+'/input/'+source_path)
         target = read_image(self.IMGS_PATH+'/target/'+source_path)
         if self.resize:
-            source,target = self.transform(source,target)
+            source =  F.resize(source,(self.image_size,self.image_size), interpolation= F.InterpolationMode.BICUBIC)
+            target =  F.resize(target,(self.image_size,self.image_size), interpolation= F.InterpolationMode.BICUBIC)
+            
+        if self.augment_data:
+            if random.random() > 0.5:
+                source = F.hflip(source)
+                target = F.hflip(target)
+            if random.random() > 0.5:
+                source = F.vflip(source)
+                target = F.vflip(target)
+            
         # source = self.transform(Image.open(ORIGINAL_FOLDER+source_path))
 
-        return source, target 
+        return source, target
 
     

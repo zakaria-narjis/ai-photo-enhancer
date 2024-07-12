@@ -15,7 +15,7 @@ class PhotoEnhancement(Dataset):
     """
     def __init__(self,image_size,mode = 'train', pre_encode = True,resize=True) -> None:
         super().__init__()
-        self.img_dataset = FiveKDataset(mode=mode,image_size=image_size,resize=resize)
+        self.img_dataset = FiveKDataset(mode=mode,image_size=image_size,resize=resize,augment_data=True)
         self.img_dataloader = DataLoader(self.img_dataset , batch_size=ENCODING_BATCH_SIZE, shuffle=False)
         self.pre_encode = pre_encode
         if self.pre_encode == True:
