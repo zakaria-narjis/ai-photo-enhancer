@@ -16,17 +16,23 @@ class FiveKDataset(Dataset):
     A dataset that reads Adobe5K dataset images
     output : tensor of unprocessed images
     """
-    def __init__(self, image_size,mode="train", resize= True ):
+    def __init__(self, image_size,mode="train", resize= True,augment_data=True):
         current_dir = Path(__file__).parent.absolute()
         if mode =='train':
             self.IMGS_PATH = os.path.join(current_dir, "..", "..", "dataset", "FiveK", "train")
         else:
             self.IMGS_PATH = os.path.join(current_dir, "..", "..", "dataset", "FiveK", "test")
         self.resize= resize
-        self.transform = transforms.Compose([
-            v2.Resize(size = (image_size,image_size), interpolation= transforms.InterpolationMode.BICUBIC),
-        ])
-
+        if augment_data:
+            self.transform = transforms.Compose([
+                v2.Resize(size = (image_size,image_size), interpolation= transforms.InterpolationMode.BICUBIC),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomVerticalFlip(p=0.5)
+            ])
+        else:
+            self.transform = transforms.Compose([
+                v2.Resize(size = (image_size,image_size), interpolation= transforms.InterpolationMode.BICUBIC),
+            ])
 
         self.img_files = [filename for filename in os.listdir(self.IMGS_PATH+'/input/')]
 
