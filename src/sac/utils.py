@@ -11,9 +11,9 @@ def save_actor_head(actor_model, file_path):
     # Save the state dictionaries to a file
     torch.save(actor_head_state_dict, file_path)
 
-def load_actor_head(actor_model, file_path):
+def load_actor_head(actor_model, file_path,device):
     # Load the state dictionaries from the file
-    actor_head_state_dict = torch.load(file_path)
+    actor_head_state_dict = torch.load(file_path, map_location=device)
     # Load the state dictionaries into the model
     actor_model.fc1.load_state_dict(actor_head_state_dict['fc1'])
     actor_model.fc2.load_state_dict(actor_head_state_dict['fc2'])
@@ -30,9 +30,9 @@ def save_critic_head(critic_model, file_path):
     # Save the state dictionaries to a file
     torch.save(critic_head_state_dict, file_path)
 
-def load_critic_head(critic_model, file_path):
+def load_critic_head(critic_model, file_path,device):
     # Load the state dictionaries from the file
-    critic_head_state_dict = torch.load(file_path)
+    critic_head_state_dict = torch.load(file_path, map_location=device)
     # Load the state dictionaries into the model
     critic_model.fc1.load_state_dict(critic_head_state_dict['fc1'])
     critic_model.fc2.load_state_dict(critic_head_state_dict['fc2'])

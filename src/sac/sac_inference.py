@@ -11,19 +11,19 @@ class InferenceAgent:
         self.env = inference_env
         
     def load_backbone (self,backbone_path):
-        self.backbone.load_state_dict(torch.load(backbone_path))
+        self.backbone.load_state_dict(torch.load(backbone_path, map_location=self.device))
         self.actor = Actor(self.env,self.backbone).to(self.device)
         self.qf1 = SoftQNetwork(self.env,self.backbone).to(self.device)
         self.qf2 = SoftQNetwork(self.env,self.backbone).to(self.device)
         self.backbone.eval()
 
     def load_actor_weights(self,actor_path):
-        load_actor_head(self.actor, actor_path)
+        load_actor_head(self.actor, actor_path,self.device)
         self.actor.eval()
         
     def load_critics_weights(self,qf1_path,qf2_path):  
-        load_critic_head(self.qf1, qf1_path)
-        load_critic_head(self.qf2, qf2_path)
+        load_critic_head(self.qf1, qf1_path,self.device)
+        load_critic_head(self.qf2, qf2_path,self.device)
         self.qf1.eval()
         self.qf2.eval()
 
