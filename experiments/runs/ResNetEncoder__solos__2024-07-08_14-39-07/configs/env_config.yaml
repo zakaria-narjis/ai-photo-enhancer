@@ -13,3 +13,5 @@ threshold: -70
 threshold_psnr: -25
 threshold_rmse: -0.01
 train_batch_size: 32
+discretize: False
+discretize_step: 0.01

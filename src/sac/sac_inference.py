@@ -32,19 +32,21 @@ class InferenceAgent:
 
             if deterministic:  
 
-                actions = self.actor.get_action(obs.to(self.device))
+                actions = self.actor.get_action(obs.to(self.device))[2]#mean action
                 return actions
 
             else:
-                actions = self.actor.get_action(obs.to(self.device))
-                best_value = self.critic(obs,actions[2])
-                best_actions = actions 
+                best_actions= self.actor.get_action(obs.to(self.device))[2] #mean action
+                best_values = self.critic(obs,best_actions).view(-1)
+                
                 for sample in range(self.args.n_actions_samples):
-                    actions = self.actor.get_action(obs.to(self.device))
-                    value = self.critic(obs,actions[0])
-                    if value> best_value:
-                        best_value = value
-                        best_actions= actions
+                    actions = self.actor.get_action(obs.to(self.device))[0]#sampled action
+                    values = self.critic(obs,actions).view(-1)
+                    
+                    if (values> best_values).any():
+                        best_actions[values>best_values] = actions[values>best_values]
+                        best_values[values>best_values] = values[values>best_values]
+                        
                 return best_actions
          
     def critic(self,obs,actions):
