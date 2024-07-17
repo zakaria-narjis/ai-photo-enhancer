@@ -12,6 +12,9 @@ import logging
 import os
 from pathlib import Path
 from tqdm import tqdm
+import random
+import matplotlib.pyplot as plt
+import torch
 class Config(object):
     def __init__(self, dictionary):
         self.__dict__.update(dictionary)
@@ -20,11 +23,14 @@ class Config(object):
 def main():
     current_dir = Path(__file__).parent.absolute()
     parser = argparse.ArgumentParser()
-    parser.add_argument('models_path', help='YAML config file')
+    parser.add_argument('experiment_path', help='folder containing the experiment models')
+    parser.add_argument('--deterministic', nargs='?',type=bool, default=False)
     parser.add_argument('--logger_level', type=int, default=logging.INFO)
+    parser.add_argument('--device', nargs='?',type=str, default='cuda:0')
+    parser.add_argument('--plt_samples', nargs='?',type=int, default=3)
     args = parser.parse_args()
     logger = logging.getLogger("test")
-    
+    args.device = torch.device(args.device) if torch.cuda.is_available() else torch.device('cpu')
     # Configure logging to console
     console_handler = logging.StreamHandler()
     console_handler.setLevel(args.logger_level)
@@ -34,10 +40,17 @@ def main():
     logger.setLevel(args.logger_level)
 
     with open(os.path.join(current_dir,"configs/inference_config.yaml")) as f:
-        inf_config_dict =yaml.load(f, Loader=yaml.FullLoader)
+        inf_config_dict =yaml.load(f, Loader=yaml.FullLoader)        
+    with open(os.path.join(args.experiment_path,"configs/sac_config.yaml")) as f:
+        sac_config_dict =yaml.load(f, Loader=yaml.FullLoader)
+    with open(os.path.join(args.experiment_path,"configs/env_config.yaml")) as f:
+        env_config_dict =yaml.load(f, Loader=yaml.FullLoader)
 
     inference_config = Config(inf_config_dict)
-    photo_editor = PhotoEditor(inference_config.sliders_to_use)
+    sac_config = Config(sac_config_dict)
+    env_config = Config(env_config_dict)
+    inference_config.device = args.device
+    photo_editor = PhotoEditor(env_config.sliders_to_use)
 
     inference_env = PhotoEnhancementEnvTest(
                         batch_size=inference_config.batch_size,
@@ -45,38 +58,80 @@ def main():
                         training_mode=False,
                         done_threshold=inference_config.threshold_psnr,
                         pre_encode=False,
-                        edit_sliders=inference_config.sliders_to_use,
+                        edit_sliders=env_config.sliders_to_use,
                         features_size=inference_config.features_size,
-                        discretize=inference_config.discretize,
-                        discretize_step= inference_config.discretize_step,
-                        logger=None
-    )
+                        discretize=env_config.discretize,
+                        discretize_step= env_config.discretize_step,
+                        logger=None)
 
-    inf_agent =InferenceAgent(inference_env, inference_config)
-
-    inf_agent.load_backbone(args.models_path+'backbone.pth')
-    inf_agent.load_actor_weights(args.models_path+'actor_head.pth')
-    inf_agent.load_critics_weights(args.models_path+'qf1_head.pth',args.models_path+'qf2_head.pth')
+    inf_agent = InferenceAgent(inference_env, inference_config)
+    os.path.join(args.experiment_path,'models','backbone.pth')
+    inf_agent.load_backbone(os.path.join(args.experiment_path,'models','backbone.pth'))
+    inf_agent.load_actor_weights(os.path.join(args.experiment_path,'models','actor_head.pth'))
+    inf_agent.load_critics_weights(os.path.join(args.experiment_path,'models','qf1_head.pth'),
+                                   os.path.join(args.experiment_path,'models','qf2_head.pth'))
 
     ssim_metric = StructuralSimilarityIndexMeasure()
-    test_512 = create_dataloaders(batch_size=1,image_size=64,train=False,pre_encode= False,shuffle=False,resize=False)
+    test_512 = create_dataloaders(batch_size=1,image_size=512,train=False,pre_encode= False,shuffle=False,resize=False)
+    test_64 = create_dataloaders(batch_size=500,image_size=64,train=False,pre_encode= False,shuffle=False,resize=True)
+
     transform = transforms.Compose([
                 v2.Resize(size = (64,64), interpolation= transforms.InterpolationMode.BICUBIC),
             ])
     PSNRS = []
     SSIM = []
     logger.info(f'Testing ...')
+    logger.info(f'Using device {args.device}')
+    batch_64_images = next(iter(test_64))[0]/255.0
+    logger.info(f'Computing optimal enhancement sliders values, DETERMINISTIC:{args.deterministic}')
+    parameters = inf_agent.act(obs=transform(batch_64_images),deterministic=args.deterministic)
+    logger.info(f'Done')
+    parameter_counter = 0
+    logger.info(f'Enhancing images and computing metrics')
+    plot_data =[]
+    random_indices = random.sample(range(len(test_512)), args.plt_samples)
     for i,t in tqdm(test_512, position=0, leave=True):
         source = i/255.0
         target = t/255.0 
-        parameters = inf_agent.act(obs=transform(source),deterministic=inference_config.deterministic)
-        enhanced_image = photo_editor((source.permute(0,2,3,1)).cpu(),parameters[2].cpu())
+        enhanced_image = photo_editor((source.permute(0,2,3,1)).cpu(),parameters[parameter_counter].unsqueeze(0).cpu())
         psnr = inference_env.compute_rewards(enhanced_image.permute(0,3,1,2),target).item()+50
         ssim = ssim_metric(enhanced_image.permute(0,3,1,2),target).item()
         PSNRS.append(psnr)
         SSIM.append(ssim)
-    logger.info(f'Mean PSNR on MIT 5K Dataset {round(np.mean(PSNRS),2)}')
-    logger.info(f'Mean SSIM on MIT 5K Dataset {round(np.mean(SSIM),3)}')
+        if  parameter_counter in random_indices:
+            plot_data.append((source,enhanced_image,target,psnr,ssim))
+        parameter_counter+=1
+
+    mean_PSNRS = round(np.mean(PSNRS),2)
+    mean_SSIM = round(np.mean(SSIM),3)
+    logger.info(f'Mean PSNR on MIT 5K Dataset {mean_PSNRS}')
+    logger.info(f'Mean SSIM on MIT 5K Dataset {mean_SSIM}')
+    
+
+    # Plotting
+    
+    
+
+    fig, axes = plt.subplots(3, args.plt_samples, figsize=(15, args.plt_samples*5)) 
+    # plt.subplots_adjust(hspace=0.5)
+    logger.info(f'Plotting samples')
+    for index in range(args.plt_samples):
+        plot_data[index][0]
+        axes[0][index].imshow(plot_data[index][0][0].permute(1,2,0))
+        # axes[0][0].set_title(('source_img'))
+        axes[0][index].axis('off')
+        axes[1][index].imshow(plot_data[index][1][0])
+        # axes[1][index].set_title('Ours')
+        axes[1][index].axis('off')
+        axes[1][index].text(0.5, -0.04, f'PSNR:{round(plot_data[index][3],2)}, SSIM:{round(plot_data[index][4],2)}', 
+                            size=10, ha='center', 
+                                    transform=axes[1][index].transAxes) 
+        axes[2][index].imshow(plot_data[index][2][0].permute(1,2,0))
+        axes[2][index].axis('off')
+    plt.tight_layout()
+    logger.info(f'Saving plot in {os.path.join(args.experiment_path,"samples_plot.svg")}')
+    fig.savefig(os.path.join(args.experiment_path,"samples_plot.svg"), format='svg')
+    
 
 if __name__ == "__main__":
     main()
