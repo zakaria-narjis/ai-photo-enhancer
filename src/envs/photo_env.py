@@ -5,6 +5,7 @@ from .env_dataloader import create_dataloaders
 import torch
 from typing import Sequence
 import multiprocessing as mp
+from tensordict import TensorDict
 try:
     mp.set_start_method('spawn', force=True)
 except RuntimeError:
@@ -140,8 +141,14 @@ class PhotoEnhancementEnv(gym.Env):
             }
             self.iter_dataloader_count += 1
 
-            batch_observation =  (self.state['source_image'],
-                                  self.state['ts_features'],self.state['ims_features'])
+            batch_observation= TensorDict(
+                        {
+                            "batch_images":self.state['source_image'],
+                            "ts_features":self.state['ts_features'],
+                            "ims_features":self.state['ims_features'],
+                        },
+                        batch_size = [self.batch_size],
+                    )
 
         else:
             source_image,target_image = next(self.iter_dataloader) 
@@ -217,7 +224,14 @@ class PhotoEnhancementEnv(gym.Env):
             done = self.check_done(rewards,self.done_threshold)      
             rewards[done]+=10
             self.state['enhanced_image'] = enhanced_image
-            batch_observation =  (enhanced_image,ts_features, ims_features)
+            batch_observation= TensorDict(
+                        {
+                            "batch_images":enhanced_image,
+                            "ts_features":self.state['ts_features'],
+                            "ims_features":self.state['ims_features'],
+                        },
+                        batch_size = [self.batch_size],
+                    )
         else:
             source_images = self.state['source_image']
             target_images = self.state['target_image']

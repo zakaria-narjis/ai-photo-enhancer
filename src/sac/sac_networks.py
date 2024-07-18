@@ -8,7 +8,7 @@ LOG_STD_MAX = 3
 LOG_STD_MIN = -5
 
 
-class Backbone(nn.Module):
+class ResNETBackbone(nn.Module):
     def __init__(self,):
         super().__init__()
         self.model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
@@ -20,6 +20,48 @@ class Backbone(nn.Module):
         x = self.preprocess (batch_images)
         features = self.model(x)
         features=torch.flatten(features,start_dim=-3,end_dim=-1)
+        return features
+
+class CrossModalAttention(nn.Module):
+    def __init__(self, bert_dim=768, clip_dim=512, resnet_dim=512, common_dim=512):
+        super().__init__()
+        self.bert_projection = nn.Linear(bert_dim, common_dim)
+        self.clip_projection = nn.Linear(clip_dim, common_dim)
+        self.resnet_projection = nn.Linear(resnet_dim, common_dim)
+        
+        self.attention = nn.MultiheadAttention(embed_dim=common_dim, num_heads=8)
+        
+    def forward(self, bert_features, clip_features, resnet_features):
+        # Project all features to a common dimension
+        q = self.bert_projection(bert_features)
+        k = self.clip_projection(clip_features)
+        v = self.resnet_projection(resnet_features)
+        
+        # Reshape tensors to (seq_len, batch_size, common_dim)
+        q = q.unsqueeze(0)  # (1, batch_size, common_dim)
+        k = k.unsqueeze(0)  # (1, batch_size, common_dim)
+        v = v.unsqueeze(0)  # (1, batch_size, common_dim)
+        
+        # Compute attention
+        attn_output, _ = self.attention(query=q, key=k, value=v)
+        
+        return attn_output.squeeze(0)    
+
+class SemanticBackbone(nn.Module):
+    def __init__(self,):
+        super().__init__()
+        self.resnet = models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        self.resnet  = torch.nn.Sequential(*(list(self.model.children())[:-1]))
+        self.preprocess = transforms.Compose([
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])#remove classifier
+        self.attention = CrossModalAttention()
+
+    def forward(self, batch_images, ts_f, ims_f):
+        res_f = self.preprocess(batch_images)
+        res_f = self.resnet(res_f)
+        features = self.attention(ts_f, ims_f, res_f)
+
         return features
 
 class Actor(nn.Module):
@@ -47,8 +89,8 @@ class Actor(nn.Module):
         if use_xavier:
             self._initialize_weights()
             
-    def forward(self, x):
-        x = self.features_extractor(x)
+    def forward(self,**kwargs):     
+        x = self.features_extractor(kwargs)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         mean = self.fc_mean(x)
@@ -97,9 +139,10 @@ class SoftQNetwork(nn.Module):
         if use_xavier:
             self._initialize_weights()
 
-    def forward(self, x, a):
-        x = self.features_extractor(x)
-        x = torch.cat([x, a], 1)
+    def forward(self, **kwargs):
+        actions = kwargs.pop('actions')
+        x = self.features_extractor(**kwargs)
+        x = torch.cat([x, actions], 1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)

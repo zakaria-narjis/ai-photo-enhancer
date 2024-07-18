@@ -5,7 +5,7 @@ try:
 except RuntimeError:
     pass 
 
-from .sac_networks import Actor, SoftQNetwork, Backbone
+from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone
 
 import time
 
@@ -30,7 +30,10 @@ class SAC:
         self.writer = writer
         self.args = args
         #networks
-        self.backbone = Backbone().to(self.device)
+        if self.args.use_txt_features=="embedded":
+            self.backbone = SemanticBackbone().to(self.device)
+        elif self.args.use_txt_features==False:
+            self.backbone = ResNETBackbone().to(self.device)      
         self.actor = Actor(env,self.backbone).to(self.device)
         self.qf1 = SoftQNetwork(env,self.backbone).to(self.device)
         self.qf2 = SoftQNetwork(env,self.backbone).to(self.device)
@@ -38,6 +41,8 @@ class SAC:
         self.qf2_target = SoftQNetwork(env,self.backbone).to(self.device)
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
+
+        
         self.q_optimizer = optim.Adam(list(self.qf1.parameters()) + list(self.qf2.parameters()), lr=args.q_lr)
         self.actor_optimizer = optim.Adam(list(self.actor.parameters()), lr=args.policy_lr)
     
@@ -49,7 +54,6 @@ class SAC:
         if args.autotune:
             # self.target_entropy = -torch.prod(torch.Tensor(env.action_space._shape[1]).to(self.device)).item()
             self.target_entropy = - env.action_space._shape[1]
-            print(env.action_space._shape,self.target_entropy)
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
             self.a_optimizer = optim.Adam([self.log_alpha], lr=args.q_lr)
@@ -123,7 +127,7 @@ class SAC:
                 else:
                     next_q_value = data["rewards"].flatten()
 
-            qf1_a_values = self.qf1(data["observations"], data["actions"]).view(-1)
+            qf1_a_values = self.qf1( batch_images = data["observations"], actions = data["actions"]).view(-1)
             qf2_a_values = self.qf2(data["observations"], data["actions"]).view(-1)
             qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
             qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
