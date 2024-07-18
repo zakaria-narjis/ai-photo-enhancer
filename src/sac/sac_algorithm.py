@@ -85,7 +85,7 @@ class SAC:
         if self.global_step < self.args.learning_starts:
             actions = self.env.action_space.sample(batch_obs.shape[0])
         else:
-            actions, _, _ = self.actor.get_action(batch_obs)
+            actions, _, _ = self.actor.get_action(**batch_obs)
             actions = actions.detach().cpu()
         next_batch_obs, rewards, dones = self.env.step(actions)
         batch_transition = TensorDict(
@@ -108,7 +108,7 @@ class SAC:
         self.backbone.eval()
         self.actor.eval()
         with torch.no_grad():
-            actions = self.actor.get_action(obs.to(self.device))
+            actions = self.actor.get_action(**obs.to(self.device))
         self.backbone.train()
         self.actor.train()    
         return actions
@@ -119,7 +119,7 @@ class SAC:
             data = self.rb.sample(self.args.batch_size).to(self.device)
             with torch.no_grad():
                 if self.args.gamma!=0:
-                    next_state_actions, next_state_log_pi, _ = self.actor.get_action(data["next_observations"])
+                    next_state_actions, next_state_log_pi, _ = self.actor.get_action(**data["next_observations"])
                     qf1_next_target = self.qf1_target(**data["next_observations"], actions=next_state_actions)
                     qf2_next_target = self.qf2_target(**data["next_observations"], actions=next_state_actions)
                     min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi

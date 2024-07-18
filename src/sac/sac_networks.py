@@ -27,7 +27,6 @@ class CrossModalAttention(nn.Module):
         super().__init__()
         self.bert_projection = nn.Linear(bert_dim, common_dim)
         self.clip_projection = nn.Linear(clip_dim, common_dim)
-        self.resnet_projection = nn.Linear(resnet_dim, common_dim)
         
         self.attention = nn.MultiheadAttention(embed_dim=common_dim, num_heads=8)
         
@@ -35,7 +34,7 @@ class CrossModalAttention(nn.Module):
         # Project all features to a common dimension
         q = self.bert_projection(bert_features)
         k = self.clip_projection(clip_features)
-        v = self.resnet_projection(resnet_features)
+        v = resnet_features
         
         # Reshape tensors to (seq_len, batch_size, common_dim)
         q = q.unsqueeze(0)  # (1, batch_size, common_dim)
@@ -58,6 +57,7 @@ class SemanticBackbone(nn.Module):
         self.attention = CrossModalAttention()
 
     def forward(self, batch_images, ts_features, ims_features):
+        print(batch_images.shape,ts_features.shape,ims_features.shape)
         res_f = self.preprocess(batch_images)
         res_f = self.resnet(res_f)
         features = self.attention(ts_features, ims_features, res_f)
