@@ -51,16 +51,16 @@ class SemanticBackbone(nn.Module):
     def __init__(self,):
         super().__init__()
         self.resnet = models.resnet18(weights='ResNet18_Weights.DEFAULT')
-        self.resnet  = torch.nn.Sequential(*(list(self.model.children())[:-1]))
+        self.resnet  = torch.nn.Sequential(*(list(self.resnet.children())[:-1]))
         self.preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])#remove classifier
         self.attention = CrossModalAttention()
 
-    def forward(self, batch_images, ts_f, ims_f):
+    def forward(self, batch_images, ts_features, ims_features):
         res_f = self.preprocess(batch_images)
         res_f = self.resnet(res_f)
-        features = self.attention(ts_f, ims_f, res_f)
+        features = self.attention(ts_features, ims_features, res_f)
 
         return features
 
@@ -97,8 +97,8 @@ class Actor(nn.Module):
 
         return mean, log_std
 
-    def get_action(self, x):
-        mean, log_std = self(x)
+    def get_action(self, **kwargs):
+        mean, log_std = self(**kwargs)
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))

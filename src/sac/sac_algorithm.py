@@ -30,9 +30,9 @@ class SAC:
         self.writer = writer
         self.args = args
         #networks
-        if self.args.use_txt_features=="embedded":
+        if self.env.use_txt_features=="embedded":
             self.backbone = SemanticBackbone().to(self.device)
-        elif self.args.use_txt_features==False:
+        elif self.env.use_txt_features==False:
             self.backbone = ResNETBackbone().to(self.device)      
         self.actor = Actor(env,self.backbone).to(self.device)
         self.qf1 = SoftQNetwork(env,self.backbone).to(self.device)

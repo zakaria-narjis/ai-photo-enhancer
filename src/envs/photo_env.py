@@ -51,14 +51,13 @@ class PhotoEnhancementEnv(gym.Env):
                     imsize,
                     training_mode,
                     done_threshold ,
-                    use_text_features ,
                     edit_sliders ,
                     features_size ,
                     discretize,
                     discretize_step,
                     use_txt_features="embedded",
                     augment_data=False,
-                    pre_encoding_device='cuda',               
+                    pre_encoding_device='cuda:0',               
                     logger=None
                     ):
             super().__init__()
@@ -70,13 +69,13 @@ class PhotoEnhancementEnv(gym.Env):
                     training_mode(bool): train mode
                     done_threshold (bool): minimum threshold to considered an image enhanced 
                     dataloader (torch.utils.data.Dataloder): images data loader
-                    use_text_features (bool): whether to encode the images or not
+                    use_txt_features (bool): whether to encode the images or not
             """
             self.logger = logger or logging.getLogger(__name__)
             self.imsize = imsize
             self.batch_size = batch_size
             self.training_mode = training_mode
-            self.use_text_features = use_text_features
+            self.use_txt_features = use_txt_features
             self.dataloader = create_dataloaders(batch_size=batch_size,image_size=imsize,use_txt_features=use_txt_features,
                        train=training_mode,augment_data=augment_data,shuffle=True,resize=True,pre_encoding_device=pre_encoding_device)
             self.edit_sliders = edit_sliders 
@@ -85,9 +84,9 @@ class PhotoEnhancementEnv(gym.Env):
             self.features_size = features_size
             self.iter_dataloader_count = 0 #counts number of batch of samples seen by the agent
             self.iter_dataloader = iter(self.dataloader) #iterator over the dataloader
-            if self.use_text_features:
+            if self.use_txt_features:
                 self.observation_space= Observation_Space(
-                        shape = self.dataloader.dataset.encoded_source.shape,
+                        shape = (self.batch_size, self.features_size),
                         dtype = torch.float32)
                                                           
                 self.action_space = Action_Space(
@@ -130,7 +129,7 @@ class PhotoEnhancementEnv(gym.Env):
             self.reset_data_iterator()
             self.iter_dataloader_count = 0
 
-        if self.use_text_features:    
+        if self.use_txt_features:    
             source_image, txt_semantic_features, img_semantic_features, target_image= next(self.iter_dataloader) 
             self.state = {
                 'source_image':source_image/255.0,  
@@ -147,7 +146,7 @@ class PhotoEnhancementEnv(gym.Env):
                             "ts_features":self.state['ts_features'],
                             "ims_features":self.state['ims_features'],
                         },
-                        batch_size = [self.batch_size],
+                        batch_size = [self.state['source_image'].shape[0]],
                     )
 
         else:
@@ -212,7 +211,7 @@ class PhotoEnhancementEnv(gym.Env):
         if self.discretize :
             batch_actions = torch.round((batch_actions+1)/self.discretize_step)*self.discretize_step-1
 
-        if self.use_text_features:
+        if self.use_txt_features:
             source_images = self.state['source_image']
             target_images = self.state['target_image']
             ts_features = self.state['ts_features']
@@ -230,7 +229,7 @@ class PhotoEnhancementEnv(gym.Env):
                             "ts_features":ts_features,
                             "ims_features":ims_features,
                         },
-                        batch_size = [self.batch_size],
+                        batch_size = [enhanced_image.shape[0]],
                     )
         else:
             source_images = self.state['source_image']
@@ -248,15 +247,14 @@ class PhotoEnhancementEnv(gym.Env):
 
 
 class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
-    def __init__(self, batch_size, imsize, done_threshold, use_text_features, edit_sliders, features_size, 
+    def __init__(self, batch_size, imsize, done_threshold, edit_sliders, features_size, 
     discretize, discretize_step, use_txt_features=False, augment_data=False, 
-    pre_encoding_device='cuda', training_mode=False, logger=None):
+    pre_encoding_device='cuda:0', training_mode=False, logger=None):
         super(PhotoEnhancementEnvTest, self).__init__(
             batch_size=batch_size,
             imsize=imsize,
             training_mode=training_mode,
             done_threshold=done_threshold,
-            use_text_features=use_text_features,
             edit_sliders=edit_sliders,
             features_size=features_size,
             discretize=discretize,

@@ -15,13 +15,19 @@ class PhotoEnhancement:
                  mode = 'train', 
                  resize=True,
                  augment_data=False,
-                 use_txt_features=False) -> None:
-        return FiveKDataset(image_size, mode=mode, resize=resize, 
-                 augment_data=augment_data, 
-                 use_txt_features=use_txt_features,
-                 device='cuda')
+                 use_txt_features=False,
+                 device='cuda:0') -> None:
+        self.image_size = image_size
+        self.mode = mode
+        self.resize = resize
+        self.augment_data = augment_data 
+        self.use_txt_features = use_txt_features
+        self.device = device
         
-    
+    def generate_dataset(self):
+        return FiveKDataset(image_size=self.image_size,mode=self.mode, 
+                            resize=self.resize, augment_data=self.augment_data,
+                            use_txt_features=self.use_txt_features,device=self.device)
 
 def create_dataloaders(batch_size,image_size,use_txt_features=False,
                        train=True,augment_data=False,shuffle=True,resize=True,pre_encoding_device='cuda'):
@@ -30,12 +36,14 @@ def create_dataloaders(batch_size,image_size,use_txt_features=False,
                  augment_data=augment_data, 
                  use_txt_features=use_txt_features,
                  device=pre_encoding_device)
+        train_dataset = train_dataset.generate_dataset()
         dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle = shuffle)
     else: 
         test_dataset = PhotoEnhancement(image_size, mode='test', resize=resize, 
                  augment_data=augment_data, 
                  use_txt_features=use_txt_features,
                  device=pre_encoding_device)
+        test_dataset = test_dataset.generate_dataset()
         dataloader = DataLoader(test_dataset, batch_size=batch_size , shuffle = shuffle)
 
     return dataloader

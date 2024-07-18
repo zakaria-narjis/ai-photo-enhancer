@@ -17,7 +17,7 @@ class FiveKDataset(Dataset):
     def __init__(self, image_size, mode="train", resize=True, 
                  augment_data=False, use_txt_features=False,device='cuda'):
         current_dir = os.getcwd()
-        dataset_dir = os.path.join(current_dir, "..", "dataset")
+        dataset_dir = os.path.join(current_dir, "dataset")
         self.IMGS_PATH = os.path.join(dataset_dir, f"FiveK/{mode}")
         self.FEATURES_PATH = os.path.join(dataset_dir, "processed_categories.txt")
         
