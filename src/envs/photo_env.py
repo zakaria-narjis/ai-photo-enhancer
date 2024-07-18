@@ -227,8 +227,8 @@ class PhotoEnhancementEnv(gym.Env):
             batch_observation= TensorDict(
                         {
                             "batch_images":enhanced_image,
-                            "ts_features":self.state['ts_features'],
-                            "ims_features":self.state['ims_features'],
+                            "ts_features":ts_features,
+                            "ims_features":ims_features,
                         },
                         batch_size = [self.batch_size],
                     )
