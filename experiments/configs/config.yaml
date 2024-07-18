@@ -3,7 +3,7 @@ threshold : -70 #PSNR Threshold to end the episode
 test_batch_size : 500 #Number of sub env for testing
 train_batch_size : 32 #Number of sub env for training
 psnr_reward : True
-threshold_psnr: -22
+threshold_psnr: -25
 threshold_rmse: -0.01
 sliders_to_use : ["blacks","exposure","shadows","highlights","whites"]
 features_size : 512

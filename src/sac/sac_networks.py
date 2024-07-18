@@ -25,16 +25,18 @@ class ResNETBackbone(nn.Module):
 class CrossModalAttention(nn.Module):
     def __init__(self, bert_dim=768, clip_dim=512, resnet_dim=512, common_dim=512):
         super().__init__()
-        self.bert_projection = nn.Linear(bert_dim, common_dim)
-        self.clip_projection = nn.Linear(clip_dim, common_dim)
-        
-        self.attention = nn.MultiheadAttention(embed_dim=common_dim, num_heads=8)
+        self.bert_projection = nn.Linear(bert_dim, common_dim)       
+        self.attention = nn.MultiheadAttention(embed_dim=common_dim*3, num_heads=8)
         
     def forward(self, bert_features, clip_features, resnet_features):
         # Project all features to a common dimension
-        q = self.bert_projection(bert_features)
-        k = self.clip_projection(clip_features)
-        v = resnet_features
+        b = self.bert_projection(bert_features)
+        c = clip_features
+        r = resnet_features
+        features = torch.cat([b, c, r], dim=1)
+        q = features
+        k = features
+        v = features
         
         # Reshape tensors to (seq_len, batch_size, common_dim)
         q = q.unsqueeze(0)  # (1, batch_size, common_dim)
@@ -44,7 +46,9 @@ class CrossModalAttention(nn.Module):
         # Compute attention
         attn_output, _ = self.attention(query=q, key=k, value=v)
         
-        return attn_output.squeeze(0)    
+        output = attn_output.squeeze(0)+features
+        
+        return  output   
 
 class SemanticBackbone(nn.Module):
     def __init__(self,):
@@ -67,15 +71,15 @@ class SemanticBackbone(nn.Module):
 class Actor(nn.Module):
     def __init__(self, env, features_extractor,use_xavier = True):
         super().__init__()
-        input_shape = env.observation_space._shape[1]*1 
+        input_shape = env.observation_space._shape[1]*3 
         output_shape = env.action_space._shape[1]
         self.features_extractor = features_extractor
             
             
-        self.fc1 = nn.Linear(input_shape , 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc_mean = nn.Linear(128, output_shape)
-        self.fc_logstd = nn.Linear(128, output_shape)
+        self.fc1 = nn.Linear(input_shape , 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc_mean = nn.Linear(256, output_shape)
+        self.fc_logstd = nn.Linear(256, output_shape)
         # action rescaling
         self.register_buffer(
             "action_scale", torch.tensor((env.action_space.high - env.action_space.low) / 2.0, dtype=torch.float32)
@@ -121,13 +125,13 @@ class Actor(nn.Module):
 class SoftQNetwork(nn.Module):
     def __init__(self, env,features_extractor,use_xavier = True):
         super().__init__()
-        input_shape = env.observation_space._shape[1]*1 
+        input_shape = env.observation_space._shape[1]*3 
         output_shape = env.action_space._shape[1]
         self.features_extractor = features_extractor
 
-        self.fc1 = nn.Linear(input_shape+output_shape , 256)
-        self.fc2 = nn.Linear(256,128)
-        self.fc3 = nn.Linear(128, 1)
+        self.fc1 = nn.Linear(input_shape+output_shape , 512)
+        self.fc2 = nn.Linear(512,256)
+        self.fc3 = nn.Linear(256, 1)
 
         if use_xavier:
             self._initialize_weights()
