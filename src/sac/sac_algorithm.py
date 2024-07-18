@@ -42,7 +42,7 @@ class SAC:
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
 
-        
+
         self.q_optimizer = optim.Adam(list(self.qf1.parameters()) + list(self.qf2.parameters()), lr=args.q_lr)
         self.actor_optimizer = optim.Adam(list(self.actor.parameters()), lr=args.policy_lr)
     
@@ -120,15 +120,15 @@ class SAC:
             with torch.no_grad():
                 if self.args.gamma!=0:
                     next_state_actions, next_state_log_pi, _ = self.actor.get_action(data["next_observations"])
-                    qf1_next_target = self.qf1_target(data["next_observations"], next_state_actions)
-                    qf2_next_target = self.qf2_target(data["next_observations"], next_state_actions)
+                    qf1_next_target = self.qf1_target(**data["next_observations"], actions=next_state_actions)
+                    qf2_next_target = self.qf2_target(**data["next_observations"], actions=next_state_actions)
                     min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
                     next_q_value = data["rewards"].flatten() + (1 - data["dones"].to(torch.float32).flatten()) * self.args.gamma * (min_qf_next_target).view(-1)
                 else:
                     next_q_value = data["rewards"].flatten()
 
-            qf1_a_values = self.qf1( batch_images = data["observations"], actions = data["actions"]).view(-1)
-            qf2_a_values = self.qf2(data["observations"], data["actions"]).view(-1)
+            qf1_a_values = self.qf1(**data["observations"], actions = data["actions"]).view(-1)
+            qf2_a_values = self.qf2(**data["observations"], actions = data["actions"]).view(-1)
             qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
             qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
             qf_loss = qf1_loss + qf2_loss
@@ -142,9 +142,9 @@ class SAC:
                 for _ in range(
                     self.args.policy_frequency
                 ):  # compensate for the delay by doing 'actor_update_interval' instead of 1
-                    pi, log_pi, _ = self.actor.get_action(data["observations"])
-                    qf1_pi = self.qf1(data["observations"], pi)
-                    qf2_pi = self.qf2(data["observations"], pi)
+                    pi, log_pi, _ = self.actor.get_action(**data["observations"])
+                    qf1_pi = self.qf1(**data["observations"], actions=pi)
+                    qf2_pi = self.qf2(**data["observations"], actions=pi)
                     min_qf_pi = torch.min(qf1_pi, qf2_pi)
                     actor_loss = ((self.alpha * log_pi) - min_qf_pi).mean()
 

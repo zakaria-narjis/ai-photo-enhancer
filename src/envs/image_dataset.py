@@ -74,8 +74,7 @@ class FiveKDataset(Dataset):
             # Precompute BERT features
             feature_text = " ".join(self.features[img_name])
             inputs = self.tokenizer(feature_text, return_tensors="pt", padding=True, truncation=True, max_length=512)
-            with torch.no_grad():
-                
+            with torch.no_grad():              
                 outputs = self.bert_model(**inputs.to(self.device))
             bert_features = outputs.last_hidden_state[:, 0, :].squeeze(0)  # Shape: (768,)
             self.precomputed_bert_features[img_name] = bert_features.cpu()
@@ -83,11 +82,8 @@ class FiveKDataset(Dataset):
             # Precompute CLIP features
             image_path = os.path.join(self.IMGS_PATH, 'input', img_name)
             image = read_image(image_path)
-            if self.resize:
-                image = F.resize(image, (self.image_size, self.image_size), interpolation=F.InterpolationMode.BICUBIC)
             clip_inputs = self.clip_processor(images=image, return_tensors="pt")
-            with torch.no_grad():
-                
+            with torch.no_grad():           
                 clip_features = self.clip_model.get_image_features(**clip_inputs.to(self.device))
 
             self.precomputed_clip_features[img_name] = clip_features.squeeze(0).cpu()  # Shape: (512,)

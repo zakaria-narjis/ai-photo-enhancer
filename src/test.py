@@ -62,7 +62,7 @@ def main():
                         features_size=inference_config.features_size,
                         discretize=env_config.discretize,
                         discretize_step= env_config.discretize_step,
-                        logger=None)
+                        logger=None)# useless just to get the action space size for the Networks
 
     inf_agent = InferenceAgent(inference_env, inference_config)
     os.path.join(args.experiment_path,'models','backbone.pth')
@@ -72,11 +72,14 @@ def main():
                                    os.path.join(args.experiment_path,'models','qf2_head.pth'))
 
     ssim_metric = StructuralSimilarityIndexMeasure()
-    test_512 = create_dataloaders(batch_size=1,image_size=512,train=False,pre_encode= False,shuffle=False,resize=False)
-    test_64 = create_dataloaders(batch_size=500,image_size=64,train=False,pre_encode= False,shuffle=False,resize=True)
+    
+    test_512 = create_dataloaders(batch_size=1,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
+                       train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=env_config.pre_encoding_device)
+    test_64 = create_dataloaders(batch_size=500,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
+                       train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=env_config.pre_encoding_device)
 
     transform = transforms.Compose([
-                v2.Resize(size = (64,64), interpolation= transforms.InterpolationMode.BICUBIC),
+                v2.Resize(size = (env_config.imsize,env_config.imsize), interpolation= transforms.InterpolationMode.BICUBIC),
             ])
     PSNRS = []
     SSIM = []

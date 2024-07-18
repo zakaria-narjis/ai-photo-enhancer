@@ -114,6 +114,9 @@ def main():
                         features_size=env_config.features_size,
                         discretize=env_config.discretize,
                         discretize_step= env_config.discretize_step,
+                        use_txt_features=env_config.use_txt_features,
+                        augment_data=env_config.augment_data,
+                        pre_encoding_device=env.pre_encoding_device,   
                         logger=None
     )
     test_env = PhotoEnhancementEnvTest(
@@ -126,6 +129,9 @@ def main():
                         features_size=env_config.features_size,
                         discretize=env_config.discretize,
                         discretize_step = env_config.discretize_step,
+                        use_txt_features=env_config.use_txt_features,
+                        augment_data=env_config.augment_data,
+                        pre_encoding_device=env.pre_encoding_device,   
                         logger=None
     )
 

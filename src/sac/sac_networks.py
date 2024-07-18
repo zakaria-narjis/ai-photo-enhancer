@@ -65,15 +65,12 @@ class SemanticBackbone(nn.Module):
         return features
 
 class Actor(nn.Module):
-    def __init__(self, env, features_extractor=None,use_xavier = True):
+    def __init__(self, env, features_extractor,use_xavier = True):
         super().__init__()
         input_shape = env.observation_space._shape[1]*1 
         output_shape = env.action_space._shape[1]
-        if env.pre_encode:
-            self.features_extractor = nn.Identity()
-        else:
-            assert features_extractor!=None
-            self.features_extractor = features_extractor
+        self.features_extractor = features_extractor
+            
             
         self.fc1 = nn.Linear(input_shape , 256)
         self.fc2 = nn.Linear(256, 128)
@@ -90,7 +87,7 @@ class Actor(nn.Module):
             self._initialize_weights()
             
     def forward(self,**kwargs):     
-        x = self.features_extractor(kwargs)
+        x = self.features_extractor(**kwargs)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         mean = self.fc_mean(x)
@@ -122,15 +119,11 @@ class Actor(nn.Module):
                     init.zeros_(m.bias)
 
 class SoftQNetwork(nn.Module):
-    def __init__(self, env,features_extractor=None,use_xavier = True):
+    def __init__(self, env,features_extractor,use_xavier = True):
         super().__init__()
         input_shape = env.observation_space._shape[1]*1 
         output_shape = env.action_space._shape[1]
-        if env.pre_encode:
-            self.features_extractor = nn.Identity()
-        else:
-            assert features_extractor!=None
-            self.features_extractor = features_extractor
+        self.features_extractor = features_extractor
 
         self.fc1 = nn.Linear(input_shape+output_shape , 256)
         self.fc2 = nn.Linear(256,128)
