@@ -157,7 +157,12 @@ class PhotoEnhancementEnv(gym.Env):
                 'source_image':source_image/255.0, 
                 'target_image':target_image/255.0,
             }
-            batch_observation= self.state['source_image']
+            batch_observation = TensorDict(
+                        {
+                            "batch_images":self.state['source_image'],
+                        },
+                        batch_size = [self.state['source_image'].shape[0]],
+                    )
         return batch_observation
     
 
@@ -242,7 +247,12 @@ class PhotoEnhancementEnv(gym.Env):
             done = self.check_done(rewards,self.done_threshold)      
             rewards[done]+=10
             self.state['enhanced_image'] = enhanced_image
-            batch_observation =  enhanced_image
+            batch_observation= TensorDict(
+                        {
+                            "batch_images":enhanced_image,
+                        },
+                        batch_size = [enhanced_image.shape[0]],
+                    )
         return batch_observation, rewards, done
 
 

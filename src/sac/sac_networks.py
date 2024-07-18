@@ -57,7 +57,6 @@ class SemanticBackbone(nn.Module):
         self.attention = CrossModalAttention()
 
     def forward(self, batch_images, ts_features, ims_features):
-        print(batch_images.shape,ts_features.shape,ims_features.shape)
         res_f = self.preprocess(batch_images)
         res_f = self.resnet(res_f)
         res_f = torch.flatten(res_f,start_dim=-3,end_dim=-1)
