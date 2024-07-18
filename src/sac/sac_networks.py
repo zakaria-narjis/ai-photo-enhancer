@@ -26,14 +26,14 @@ class CrossModalAttention(nn.Module):
     def __init__(self, bert_dim=768, clip_dim=512, resnet_dim=512, common_dim=512):
         super().__init__()
         self.bert_projection = nn.Linear(bert_dim, common_dim)       
-        self.attention = nn.MultiheadAttention(embed_dim=common_dim*3, num_heads=8)
+        self.attention = nn.MultiheadAttention(embed_dim=common_dim*2, num_heads=8)
         
     def forward(self, bert_features, clip_features, resnet_features):
         # Project all features to a common dimension
         b = self.bert_projection(bert_features)
         c = clip_features
         r = resnet_features
-        features = torch.cat([b, c, r], dim=1)
+        features = torch.cat([b, r], dim=1)
         q = features
         k = features
         v = features
@@ -71,7 +71,7 @@ class SemanticBackbone(nn.Module):
 class Actor(nn.Module):
     def __init__(self, env, features_extractor,use_xavier = True):
         super().__init__()
-        input_shape = env.observation_space._shape[1]*3 
+        input_shape = env.observation_space._shape[1]*2 
         output_shape = env.action_space._shape[1]
         self.features_extractor = features_extractor
             
@@ -125,7 +125,7 @@ class Actor(nn.Module):
 class SoftQNetwork(nn.Module):
     def __init__(self, env,features_extractor,use_xavier = True):
         super().__init__()
-        input_shape = env.observation_space._shape[1]*3 
+        input_shape = env.observation_space._shape[1]*2 
         output_shape = env.action_space._shape[1]
         self.features_extractor = features_extractor
 
