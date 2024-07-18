@@ -1,10 +1,10 @@
-exp_name: "ResNetEncoder"
+exp_name: "SemanticBackbone"
 #the name of this experiment#
 seed: 1
 #seed of the experiment#
 torch_deterministic: true
 #if toggled, `torch.backends.cudnn.deterministic=False`#
-device: "cuda:7"
+device: "cuda:0"
 #if toggled, cuda will be enabled by default#rue
 track: false
 #if toggled, this experiment will be tracked with Weights and Biases#
@@ -13,7 +13,7 @@ track: false
 # Algorithm specific arguments
 total_timesteps: 80000
 #total timesteps of the experiments#
-buffer_size: 60000
+buffer_size: 40000
 #the replay memory buffer size#
 gamma: 0
 #the discount factor gamma#

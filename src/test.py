@@ -53,17 +53,20 @@ def main():
     photo_editor = PhotoEditor(env_config.sliders_to_use)
 
     inference_env = PhotoEnhancementEnvTest(
-                        batch_size=inference_config.batch_size,
-                        imsize=inference_config.imsize,
+                        batch_size=env_config.train_batch_size,
+                        imsize=env_config.imsize,
                         training_mode=False,
-                        done_threshold=inference_config.threshold_psnr,
-                        pre_encode=False,
+                        done_threshold=env_config.threshold_psnr,
                         edit_sliders=env_config.sliders_to_use,
-                        features_size=inference_config.features_size,
+                        features_size=env_config.features_size,
                         discretize=env_config.discretize,
                         discretize_step= env_config.discretize_step,
-                        logger=None)# useless just to get the action space size for the Networks
-
+                        use_txt_features=env_config.use_txt_features,
+                        augment_data=env_config.augment_data,
+                        pre_encoding_device=env_config.pre_encoding_device,   
+                        logger=None
+    )# useless just to get the action space size for the Networks and whether to use txt features or not
+    
     inf_agent = InferenceAgent(inference_env, inference_config)
     os.path.join(args.experiment_path,'models','backbone.pth')
     inf_agent.load_backbone(os.path.join(args.experiment_path,'models','backbone.pth'))

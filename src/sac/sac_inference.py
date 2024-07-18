@@ -1,4 +1,4 @@
-from .sac_networks import Actor, SoftQNetwork, Backbone
+from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone
 import torch
 from .utils import *
 
@@ -7,7 +7,10 @@ class InferenceAgent:
     def __init__(self,inference_env, inference_args):
         self.args =inference_args
         self.device = inference_args.device
-        self.backbone = Backbone().to(self.device)
+        if inference_env.use_txt_features=='embedded':
+            self.backbone = SemanticBackbone().to(self.device)
+        else:
+            self.backbone = ResNETBackbone().to(self.device)
         self.env = inference_env
         
     def load_backbone (self,backbone_path):
