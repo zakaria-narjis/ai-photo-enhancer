@@ -33,21 +33,21 @@ class CrossModalAttention(nn.Module):
         b = self.bert_projection(bert_features)
         c = clip_features
         r = resnet_features
-        features = torch.cat([b, r], dim=1)
-        q = features
-        k = features
-        v = features
+        # features = torch.cat([b, r], dim=1)
+        # q = features
+        # k = features
+        # v = features
         
-        # Reshape tensors to (seq_len, batch_size, common_dim)
-        q = q.unsqueeze(0)  # (1, batch_size, common_dim)
-        k = k.unsqueeze(0)  # (1, batch_size, common_dim)
-        v = v.unsqueeze(0)  # (1, batch_size, common_dim)
+        # # Reshape tensors to (seq_len, batch_size, common_dim)
+        # q = q.unsqueeze(0)  # (1, batch_size, common_dim)
+        # k = k.unsqueeze(0)  # (1, batch_size, common_dim)
+        # v = v.unsqueeze(0)  # (1, batch_size, common_dim)
         
-        # Compute attention
-        attn_output, _ = self.attention(query=q, key=k, value=v)
+        # # Compute attention
+        # attn_output, _ = self.attention(query=q, key=k, value=v)
         
-        output = attn_output.squeeze(0)+features
-        
+        # output = attn_output.squeeze(0)+features
+        output = torch.cat([b, r], dim=1)
         return  output   
 
 class SemanticBackbone(nn.Module):
