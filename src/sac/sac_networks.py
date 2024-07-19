@@ -68,16 +68,36 @@ class SemanticBackbone(nn.Module):
 
         return features
 
+class SemanticBackboneOC(nn.Module):
+    """
+    Semantic Backbone for onehot encoded text features
+    
+    """
+    def __init__(self,):
+        super().__init__()
+        self.resnet = models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        self.resnet  = torch.nn.Sequential(*(list(self.resnet.children())[:-1]))
+        self.preprocess = transforms.Compose([
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+    def forward(self,batch_images,ts_features):
+        res_f = self.preprocess(batch_images)
+        res_f = self.resnet(res_f)
+        res_f = torch.flatten(res_f,start_dim=-3,end_dim=-1)
+        res_f = torch.cat([res_f, ts_features], dim=1)
+        return res_f
+
+
 class Actor(nn.Module):
     def __init__(self, env, features_extractor,use_xavier = True):
         super().__init__()
-        input_shape = env.observation_space._shape[1]*2 
+        input_shape = env.observation_space._shape[1]
         output_shape = env.action_space._shape[1]
         self.features_extractor = features_extractor
             
             
-        self.fc1 = nn.Linear(input_shape , 512)
-        self.fc2 = nn.Linear(512, 256)
+        self.fc1 = nn.Linear(input_shape , 256)
+        self.fc2 = nn.Linear(256, 256)
         self.fc_mean = nn.Linear(256, output_shape)
         self.fc_logstd = nn.Linear(256, output_shape)
         # action rescaling
@@ -125,12 +145,12 @@ class Actor(nn.Module):
 class SoftQNetwork(nn.Module):
     def __init__(self, env,features_extractor,use_xavier = True):
         super().__init__()
-        input_shape = env.observation_space._shape[1]*2 
+        input_shape = env.observation_space._shape[1] 
         output_shape = env.action_space._shape[1]
         self.features_extractor = features_extractor
 
-        self.fc1 = nn.Linear(input_shape+output_shape , 512)
-        self.fc2 = nn.Linear(512,256)
+        self.fc1 = nn.Linear(input_shape+output_shape , 256)
+        self.fc2 = nn.Linear(256,256)
         self.fc3 = nn.Linear(256, 1)
 
         if use_xavier:

@@ -1,5 +1,5 @@
 
-from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone
+from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone,SemanticBackboneOC
 
 import time
 
@@ -26,8 +26,11 @@ class SAC:
         #networks
         if self.env.use_txt_features=="embedded":
             self.backbone = SemanticBackbone().to(self.device)
+        elif self.env.use_txt_features=="one_hot":
+            self.backbone = SemanticBackboneOC().to(self.device)
         elif self.env.use_txt_features==False:
             self.backbone = ResNETBackbone().to(self.device)      
+            
         self.actor = Actor(env,self.backbone).to(self.device)
         self.qf1 = SoftQNetwork(env,self.backbone).to(self.device)
         self.qf2 = SoftQNetwork(env,self.backbone).to(self.device)

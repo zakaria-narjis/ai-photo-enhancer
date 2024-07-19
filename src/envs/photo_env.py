@@ -82,7 +82,18 @@ class PhotoEnhancementEnv(gym.Env):
             self.iter_dataloader = iter(self.dataloader) #iterator over the dataloader
             if self.use_txt_features:
                 self.observation_space= Observation_Space(
-                        shape = (self.batch_size, self.features_size),
+                        shape = (self.batch_size, self.features_size*3),
+                        dtype = torch.float32)
+                                                          
+                self.action_space = Action_Space(
+                    high = 1,
+                    low = -1,
+                    shape = (self.batch_size, self.num_parameters),
+                    dtype = torch.float32
+                )
+            if self.use_txt_features=="one_hot":
+                self.observation_space= Observation_Space(
+                        shape = (self.batch_size, self.features_size+16),
                         dtype = torch.float32)
                                                           
                 self.action_space = Action_Space(
@@ -125,7 +136,7 @@ class PhotoEnhancementEnv(gym.Env):
             self.reset_data_iterator()
             self.iter_dataloader_count = 0
 
-        if self.use_txt_features:    
+        if self.use_txt_features=="embedded":    
             source_image, txt_semantic_features, img_semantic_features, target_image= next(self.iter_dataloader) 
             self.state = {
                 'source_image':source_image/255.0,  
@@ -144,7 +155,23 @@ class PhotoEnhancementEnv(gym.Env):
                         },
                         batch_size = [self.state['source_image'].shape[0]],
                     )
+        elif self.use_txt_features=="one_hot":
+            source_image, txt_features, target_image= next(self.iter_dataloader) 
+            self.state = {
+                'source_image':source_image/255.0,  
+                'enhanced_image':source_image/255.0,                     
+                'ts_features':txt_features,
+                'target_image':target_image/255.0,
+            }
+            self.iter_dataloader_count += 1
 
+            batch_observation= TensorDict(
+                        {
+                            "batch_images":self.state['source_image'],
+                            "ts_features":self.state['ts_features'],
+                        },
+                        batch_size = [self.state['source_image'].shape[0]],
+                    )
         else:
             source_image,target_image = next(self.iter_dataloader) 
             self.iter_dataloader_count += 1
@@ -212,7 +239,7 @@ class PhotoEnhancementEnv(gym.Env):
         if self.discretize :
             batch_actions = torch.round((batch_actions+1)/self.discretize_step)*self.discretize_step-1
 
-        if self.use_txt_features:
+        if self.use_txt_features=="embedded":
             source_images = self.state['source_image']
             target_images = self.state['target_image']
             ts_features = self.state['ts_features']
@@ -232,6 +259,22 @@ class PhotoEnhancementEnv(gym.Env):
                         },
                         batch_size = [enhanced_image.shape[0]],
                     )
+        elif self.use_txt_features=="one_hot":
+            source_images = self.state['source_image']
+            target_images = self.state['target_image']
+            ts_features = self.state['ts_features']
+            enhanced_image = self.photo_editor(source_images.permute(0,2,3,1),batch_actions)
+            enhanced_image = enhanced_image.permute(0,3,1,2) 
+            rewards = self.compute_rewards(enhanced_image,target_images)
+            done = self.check_done(rewards,self.done_threshold)      
+            rewards[done]+=10
+            self.state['enhanced_image'] = enhanced_image
+            batch_observation= TensorDict(
+                        {
+                            "batch_images":enhanced_image,
+                            "ts_features":ts_features,
+                        },
+                        batch_size = [enhanced_image.shape[0]],)
         else:
             source_images = self.state['source_image']
             target_images = self.state['target_image']
