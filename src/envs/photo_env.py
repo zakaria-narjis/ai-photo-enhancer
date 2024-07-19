@@ -6,11 +6,7 @@ import torch
 from typing import Sequence
 import multiprocessing as mp
 from tensordict import TensorDict
-try:
-    mp.set_start_method('spawn', force=True)
-except RuntimeError:
-    pass  
-
+ 
 class Observation_Space:
     
     def __init__(self,

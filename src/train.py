@@ -13,10 +13,6 @@ import argparse
 import logging
 from sac.utils import *
 from tqdm.auto import tqdm
-try:
-    mp.set_start_method('spawn', force=True)
-except RuntimeError:
-    pass  
 
 from datetime import datetime
 import os
