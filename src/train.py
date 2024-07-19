@@ -168,6 +168,9 @@ def main():
                     break 
             if agent.global_step%200==0:
                 agent.backbone.eval()
+                agent.actor.eval()
+                agent.qf1.eval()
+                agent.qf2.eval()
                 with torch.no_grad():
                     n_images = 5
                     obs = test_env.reset() 
@@ -178,6 +181,10 @@ def main():
                     agent.writer.add_images("test_images",test_env.state['enhanced_image'][:n_images],1)
                     agent.writer.add_images("test_images",test_env.state['target_image'][:n_images],2)
                 agent.backbone.train()
+                agent.actor.train()
+                agent.qf1.train()
+                agent.qf2.train()
+                
         logger.info(f'Ended training at {getdatetime()}')
         if args.save_model:
                 models_dir = os.path.join(run_dir, 'models')
