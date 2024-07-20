@@ -41,13 +41,17 @@ class InferenceAgent:
                 return actions
 
             else:
-                best_actions= self.actor.get_action(**obs.to(self.device))[2] #mean action
+                best_actions= self.actor.get_action(**obs.to(self.device))[0] #mean action
                 best_values = self.critic(obs,best_actions).view(-1)
                 
                 for sample in range(self.args.n_actions_samples):
-                    actions = self.actor.get_action(**obs.to(self.device))[0]#sampled action
-                    values = self.critic(obs,actions).view(-1)
-                    
+                    if sample==0:
+                        actions = self.actor.get_action(**obs.to(self.device))[2]#sampled action
+                        values = self.critic(obs,actions).view(-1)
+                    else:
+                        actions = self.actor.get_action(**obs.to(self.device))[0]#sampled action
+                        values = self.critic(obs,actions).view(-1)
+
                     if (values> best_values).any():
                         best_actions[values>best_values] = actions[values>best_values]
                         best_values[values>best_values] = values[values>best_values]

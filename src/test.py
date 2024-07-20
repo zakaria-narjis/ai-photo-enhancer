@@ -49,6 +49,15 @@ def main():
     inference_config = Config(inf_config_dict)
     sac_config = Config(sac_config_dict)
     env_config = Config(env_config_dict)
+
+    SEED = sac_config.seed
+
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.backends.cudnn.deterministic = sac_config.torch_deterministic
+    torch.autograd.set_detect_anomaly(True)
+    
     inference_config.device = args.device
     photo_editor = PhotoEditor(env_config.sliders_to_use)
 
