@@ -66,7 +66,7 @@ def main():
                         pre_encoding_device=env_config.pre_encoding_device,   
                         logger=None
     )# useless just to get the action space size for the Networks and whether to use txt features or not
-    
+
     inf_agent = InferenceAgent(inference_env, inference_config)
     os.path.join(args.experiment_path,'models','backbone.pth')
     inf_agent.load_backbone(os.path.join(args.experiment_path,'models','backbone.pth'))
@@ -76,24 +76,30 @@ def main():
 
     ssim_metric = StructuralSimilarityIndexMeasure()
     
-    test_512 = create_dataloaders(batch_size=1,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
+    test_512 = create_dataloaders(batch_size=1,image_size=env_config.imsize,use_txt_features=False,
                        train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=env_config.pre_encoding_device)
     test_64 = create_dataloaders(batch_size=500,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
-                       train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=env_config.pre_encoding_device)
+                       train=False,augment_data=False,shuffle=False,resize=True,pre_encoding_device=env_config.pre_encoding_device)
 
-    transform = transforms.Compose([
-                v2.Resize(size = (env_config.imsize,env_config.imsize), interpolation= transforms.InterpolationMode.BICUBIC),
-            ])
+    
     PSNRS = []
     SSIM = []
+
     logger.info(f'Testing ...')
     logger.info(f'Using device {args.device}')
-    batch_64_images = next(iter(test_64))[0]/255.0
+    # batch_64_images = next(iter(test_64))[0]/255.0
+    inference_env.dataloader = test_64
+    inference_env.iter_dataloader = iter(test_64)
+    inference_env.batch_size = 500 
+    batch_64_images = inference_env.reset()
     logger.info(f'Computing optimal enhancement sliders values, DETERMINISTIC:{args.deterministic}')
-    parameters = inf_agent.act(obs=transform(batch_64_images),deterministic=args.deterministic)
+    
+    parameters = inf_agent.act(batch_64_images,deterministic=args.deterministic)
+
     logger.info(f'Done')
     parameter_counter = 0
     logger.info(f'Enhancing images and computing metrics')
+
     plot_data =[]
     random_indices = random.sample(range(len(test_512)), args.plt_samples)
     for i,t in tqdm(test_512, position=0, leave=True):
