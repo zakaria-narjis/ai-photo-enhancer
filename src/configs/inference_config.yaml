@@ -1,1 +1,2 @@
 n_actions_samples: 10
+device: "cuda:0"
