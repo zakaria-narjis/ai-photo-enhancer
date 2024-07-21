@@ -9,9 +9,10 @@ from tqdm import tqdm
 
 class FiveKDataset(Dataset):
     def __init__(self, image_size, mode="train", resize=True, 
-                 augment_data=False, use_txt_features=False, device='cuda'):
+                 augment_data=False, use_txt_features=False, device='cuda',
+                 pre_load_images=True):
         current_dir = os.getcwd()
-        dataset_dir = os.path.join(current_dir,"dataset")
+        dataset_dir = os.path.join(current_dir, "dataset")
         self.IMGS_PATH = os.path.join(dataset_dir, f"FiveK/{mode}")
         self.FEATURES_PATH = os.path.join(dataset_dir, "processed_categories_2.txt")
         
@@ -20,6 +21,7 @@ class FiveKDataset(Dataset):
         self.augment_data = augment_data
         self.use_txt_features = use_txt_features
         self.device = device
+        self.pre_load_images = pre_load_images
         self.feature_categories = ["Location", "Time", "Light", "Subject"]
         
         # Load semantic features from processed_categories.txt
@@ -47,8 +49,9 @@ class FiveKDataset(Dataset):
             for cat, features in unique_features.items()
         }
         
-        # Preload all images and features
-        self.preload_data()
+        # Preload all images and features if pre_load_images is True
+        if self.pre_load_images:
+            self.preload_data()
         
         if self.use_txt_features == "embedded":
             self.precompute_features()
@@ -126,8 +129,20 @@ class FiveKDataset(Dataset):
         return len(self.img_files)
 
     def __getitem__(self, idx):
-        source = self.source_images[idx]
-        target = self.target_images[idx]
+        if self.pre_load_images:
+            source = self.source_images[idx]
+            target = self.target_images[idx]
+        else:
+            img_name = self.img_files[idx]
+            source = read_image(os.path.join(self.IMGS_PATH, 'input', img_name))
+            target = read_image(os.path.join(self.IMGS_PATH, 'target', img_name))
+            
+            if self.resize:
+                source = F.resize(source, (self.image_size, self.image_size), interpolation=F.InterpolationMode.BICUBIC)
+                target = F.resize(target, (self.image_size, self.image_size), interpolation=F.InterpolationMode.BICUBIC)
+            
+            source = source.to(self.device)
+            target = target.to(self.device)
 
         if self.augment_data:
             if torch.rand(1).item() > 0.5:
@@ -140,9 +155,17 @@ class FiveKDataset(Dataset):
         if not self.use_txt_features:
             return source, target
         elif self.use_txt_features == "one_hot":
-            return source, self.one_hot_features[idx], target
+            if self.pre_load_images:
+                return source, self.one_hot_features[idx], target
+            else:
+                one_hot = self.mlb.transform([self.features[self.img_files[idx]]])[0]
+                return source, torch.tensor(one_hot, dtype=torch.float32, device=self.device), target
         elif self.use_txt_features == "categorical":
-            return source, self.cat_features[idx], target
+            if self.pre_load_images:
+                return source, self.cat_features[idx], target
+            else:
+                cat = [self.feature_to_idx[cat][feat] for cat, feat in zip(self.feature_categories, self.features[self.img_files[idx]])]
+                return source, torch.tensor(cat, dtype=torch.long, device=self.device), target
         elif self.use_txt_features == "embedded":
             return source, self.bert_features[idx], self.clip_features[idx], target
         else:

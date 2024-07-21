@@ -72,7 +72,7 @@ def main():
                         discretize_step= env_config.discretize_step,
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
-                        pre_encoding_device=env_config.pre_encoding_device,   
+                        pre_encoding_device=args.device,   
                         logger=None
     )# useless just to get the action space size for the Networks and whether to use txt features or not
 
@@ -86,9 +86,9 @@ def main():
     ssim_metric = StructuralSimilarityIndexMeasure()
     
     test_512 = create_dataloaders(batch_size=1,image_size=env_config.imsize,use_txt_features=False,
-                       train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=env_config.pre_encoding_device)
+                       train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=args.device,pre_load_images=False)
     test_64 = create_dataloaders(batch_size=500,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
-                       train=False,augment_data=False,shuffle=False,resize=True,pre_encoding_device=env_config.pre_encoding_device)
+                       train=False,augment_data=False,shuffle=False,resize=True,pre_encoding_device=args.device)
 
     
     PSNRS = []
