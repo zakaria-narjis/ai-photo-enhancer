@@ -175,7 +175,7 @@ def main():
                     n_images = 5
                     obs = test_env.reset() 
                     actions = agent.actor.get_action(**obs.to(sac_config.device))
-                    _,rewards,dones = test_env.step(actions[0].cpu())
+                    _,rewards,dones = test_env.step(actions[0])
                     agent.writer.add_scalar("charts/test_mean_episodic_return", rewards.mean().item(), agent.global_step)
                     agent.writer.add_images("test_images",test_env.state['source_image'][:n_images],0)
                     agent.writer.add_images("test_images",test_env.state['enhanced_image'][:n_images],1)

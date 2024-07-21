@@ -11,7 +11,7 @@ class FiveKDataset(Dataset):
     def __init__(self, image_size, mode="train", resize=True, 
                  augment_data=False, use_txt_features=False, device='cuda'):
         current_dir = os.getcwd()
-        dataset_dir = os.path.join(current_dir, "..","dataset")
+        dataset_dir = os.path.join(current_dir,"dataset")
         self.IMGS_PATH = os.path.join(dataset_dir, f"FiveK/{mode}")
         self.FEATURES_PATH = os.path.join(dataset_dir, "processed_categories_2.txt")
         
@@ -116,8 +116,8 @@ class FiveKDataset(Dataset):
                 clip_features = clip_model.get_image_features(**clip_inputs)
             self.clip_features.append(clip_features.squeeze(0))  # Shape: (512,)
         
-        self.bert_features = torch.stack(self.bert_features)
-        self.clip_features = torch.stack(self.clip_features)
+        self.bert_features = torch.stack(self.bert_features).to(self.device)
+        self.clip_features = torch.stack(self.clip_features).to(self.device)
         
         del bert_model, tokenizer, clip_model, clip_processor
         print("BERT and CLIP features precomputed and stored in GPU memory.")

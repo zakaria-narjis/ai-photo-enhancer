@@ -4,7 +4,7 @@ seed: 1
 #seed of the experiment#
 torch_deterministic: true
 #if toggled, `torch.backends.cudnn.deterministic=False`#
-device: "cuda:12"
+device: "cuda:0"
 #if toggled, cuda will be enabled by default#rue
 track: false
 #if toggled, this experiment will be tracked with Weights and Biases#
@@ -19,9 +19,9 @@ gamma: 0
 #the discount factor gamma#
 tau: 0.005
 #target smoothing coefficient (default: 0.005)#
-batch_size: 32
+batch_size: 64
 #the batch size of sample from the reply memory#
-learning_starts: 350
+learning_starts: 20
 #timestep to start learning#
 policy_lr: 0.0003
 #the learning rate of the policy network optimizer#

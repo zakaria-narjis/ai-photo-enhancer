@@ -80,10 +80,10 @@ class SAC:
         batch_obs = self.state.to(self.device)
 
         if self.global_step < self.args.learning_starts:
-            actions = self.env.action_space.sample(batch_obs.shape[0])
+            actions = self.env.action_space.sample(batch_obs.shape[0]).to(self.device)
         else:
             actions, _, _ = self.actor.get_action(**batch_obs)
-            actions = actions.detach().cpu()
+            actions = actions.detach()
         next_batch_obs, rewards, dones = self.env.step(actions)
         batch_transition = TensorDict(
             {
