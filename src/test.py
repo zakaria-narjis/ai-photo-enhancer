@@ -115,8 +115,8 @@ def main():
         source = i/255.0
         target = t/255.0 
         enhanced_image = photo_editor((source.permute(0,2,3,1)).to(args.device),parameters[parameter_counter].unsqueeze(0).to(args.device))
-        psnr = inference_env.compute_rewards(enhanced_image.permute(0,3,1,2),target).item()+50
-        ssim = ssim_metric(enhanced_image.permute(0,3,1,2),target).item()
+        psnr = inference_env.compute_rewards(enhanced_image.permute(0,3,1,2).to(args.device),target.to(args.device)).item()+50
+        ssim = ssim_metric(enhanced_image.permute(0,3,1,2).to(args.device),target.to(args.device)).item()
         PSNRS.append(psnr)
         SSIM.append(ssim)
         if  parameter_counter in random_indices:
