@@ -167,10 +167,10 @@ def main():
                     episode_count=0           
                     break 
             if agent.global_step%200==0:
-                agent.backbone.eval()
-                agent.actor.eval()
-                agent.qf1.eval()
-                agent.qf2.eval()
+                agent.backbone.eval().requires_grad_(False)
+                agent.actor.eval().requires_grad_(False)
+                agent.qf1.eval().requires_grad_(False)
+                agent.qf2.eval().requires_grad_(False)
                 with torch.no_grad():
                     n_images = 5
                     obs = test_env.reset() 
@@ -180,10 +180,10 @@ def main():
                     agent.writer.add_images("test_images",test_env.state['source_image'][:n_images],0)
                     agent.writer.add_images("test_images",test_env.state['enhanced_image'][:n_images],1)
                     agent.writer.add_images("test_images",test_env.state['target_image'][:n_images],2)
-                agent.backbone.train()
-                agent.actor.train()
-                agent.qf1.train()
-                agent.qf2.train()
+                agent.backbone.train().requires_grad_(True)
+                agent.actor.train().requires_grad_(True)
+                agent.qf1.train().requires_grad_(True)
+                agent.qf2.train().requires_grad_(True)
                 
         logger.info(f'Ended training at {getdatetime()}')
         if args.save_model:

@@ -18,7 +18,8 @@ class SAC:
     def __init__(self,
                  env,
                  args,
-                 writer):
+                 writer, critic_only_backbone=True):
+        self.critic_only_backbone = critic_only_backbone
         self.env = env #train env
         self.device = args.device
         self.writer = writer
@@ -102,12 +103,16 @@ class SAC:
         return rewards,dones
     
     def act_eval(self,obs):
-        self.backbone.eval()
-        self.actor.eval()
+        self.backbone.eval().requires_grad_(False)
+        self.qf1.eval().requires_grad_(False)
+        self.qf2.eval().requires_grad_(False)
+        self.actor.eval().requires_grad_(False)
         with torch.no_grad():
             actions = self.actor.get_action(**obs.to(self.device))
-        self.backbone.train()
-        self.actor.train()    
+        self.backbone.train().requires_grad_(True)
+        self.qf1.train().requires_grad_(True)
+        self.qf2.train().requires_grad_(True)
+        self.actor.train().requires_grad_(True) 
         return actions
     
     def update(self,):
@@ -136,6 +141,8 @@ class SAC:
             self.q_optimizer.step()
 
             if self.global_step % self.args.policy_frequency == 0:  # TD 3 Delayed update support
+                if self.critic_only_backbone:
+                    self.backbone.eval().requires_grad_(False)
                 for _ in range(
                     self.args.policy_frequency
                 ):  # compensate for the delay by doing 'actor_update_interval' instead of 1
@@ -157,6 +164,8 @@ class SAC:
                         alpha_loss.backward()
                         self.a_optimizer.step()
                         self.alpha = self.log_alpha.exp().item()
+                if self.critic_only_backbone:
+                    self.backbone.train().requires_grad_(True)
 
             # update the target networks
             if self.args.gamma!=0:

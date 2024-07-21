@@ -20,7 +20,7 @@ class InferenceAgent:
         self.actor = Actor(self.env,self.backbone).to(self.device)
         self.qf1 = SoftQNetwork(self.env,self.backbone).to(self.device)
         self.qf2 = SoftQNetwork(self.env,self.backbone).to(self.device)
-        self.backbone.eval()
+        self.backbone.eval().requires_grad_(False)
 
     def load_actor_weights(self,actor_path):
         load_actor_head(self.actor, actor_path,self.device)
@@ -29,8 +29,8 @@ class InferenceAgent:
     def load_critics_weights(self,qf1_path,qf2_path):  
         load_critic_head(self.qf1, qf1_path,self.device)
         load_critic_head(self.qf2, qf2_path,self.device)
-        self.qf1.eval()
-        self.qf2.eval()
+        self.qf1.eval().requires_grad_(False)
+        self.qf2.eval().requires_grad_(False)
 
     def act(self,obs,deterministic=True):
         with torch.inference_mode():
