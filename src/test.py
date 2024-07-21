@@ -120,7 +120,7 @@ def main():
         PSNRS.append(psnr)
         SSIM.append(ssim)
         if  parameter_counter in random_indices:
-            plot_data.append((source,enhanced_image,target,psnr,ssim))
+            plot_data.append((source.cpu(),enhanced_image.cpu(),target.cpu(),psnr.cpu(),ssim.cpu()))
         parameter_counter+=1
 
     mean_PSNRS = round(np.mean(PSNRS),2)
