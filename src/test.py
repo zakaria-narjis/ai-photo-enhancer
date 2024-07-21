@@ -83,7 +83,7 @@ def main():
     inf_agent.load_critics_weights(os.path.join(args.experiment_path,'models','qf1_head.pth'),
                                    os.path.join(args.experiment_path,'models','qf2_head.pth'))
 
-    ssim_metric = StructuralSimilarityIndexMeasure()
+    ssim_metric = StructuralSimilarityIndexMeasure().to(args.device)
     
     test_512 = create_dataloaders(batch_size=1,image_size=env_config.imsize,use_txt_features=False,
                        train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=args.device,pre_load_images=False)
