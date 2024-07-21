@@ -94,7 +94,10 @@ class Actor(nn.Module):
         input_shape = env.observation_space._shape[1]
         output_shape = env.action_space._shape[1]
         self.features_extractor = features_extractor
-            
+        # self.fc1 = nn.Linear(input_shape , 256)
+        # self.fc2 = nn.Linear(256, 128)
+        # self.fc_mean = nn.Linear(128, output_shape)
+        # self.fc_logstd = nn.Linear(128, output_shape)      
             
         self.fc1 = nn.Linear(input_shape , 256)
         self.fc2 = nn.Linear(256, 256)
