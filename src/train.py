@@ -194,7 +194,7 @@ def main():
                 save_actor_head(agent.actor, run_dir+'/models/actor_head.pth')
                 save_critic_head(agent.qf1, run_dir+'/models/qf1_head.pth')
                 save_critic_head(agent.qf2, run_dir+'/models/qf2_head.pth')
-
+        writer.close()
     except Exception as e:
         
         logger.exception("An error occurred during training")
@@ -207,7 +207,7 @@ def main():
                 save_actor_head(agent.actor, run_dir+'/models/actor_head.pth')
                 save_critic_head(agent.qf1, run_dir+'/models/qf1_head.pth')
                 save_critic_head(agent.qf2, run_dir+'/models/qf2_head.pth')
-
+        writer.close()
 
 if __name__=="__main__":
 
