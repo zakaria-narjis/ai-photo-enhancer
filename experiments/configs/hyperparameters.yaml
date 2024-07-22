@@ -1,10 +1,10 @@
-exp_name: "SemanticBackbone"
+exp_name: "2nd_agent"
 #the name of this experiment#
 seed: 1
 #seed of the experiment#
 torch_deterministic: true
 #if toggled, `torch.backends.cudnn.deterministic=False`#
-device: "cuda:14"
+device: "cuda:0"
 #if toggled, cuda will be enabled by default#rue
 track: false
 #if toggled, this experiment will be tracked with Weights and Biases#

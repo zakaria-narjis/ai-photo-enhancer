@@ -14,7 +14,7 @@ class InferenceAgent:
         else:
             self.backbone = ResNETBackbone().to(self.device)
         self.env = inference_env
-        
+
     def load_backbone (self,backbone_path):
         self.backbone.load_state_dict(torch.load(backbone_path, map_location=self.device))
         self.actor = Actor(self.env,self.backbone).to(self.device)
@@ -32,7 +32,9 @@ class InferenceAgent:
         self.qf1.eval().requires_grad_(False)
         self.qf2.eval().requires_grad_(False)
 
-    def act(self,obs,deterministic=True):
+    def act(self,obs,deterministic=True,n_samples=None):
+        if n_samples ==None:
+            n_samples = self.args.n_actions_samples
         with torch.inference_mode():
 
             if deterministic:  
@@ -44,7 +46,7 @@ class InferenceAgent:
                 best_actions= self.actor.get_action(**obs.to(self.device))[0] #mean action
                 best_values = self.critic(obs,best_actions).view(-1)
                 
-                for sample in range(self.args.n_actions_samples):
+                for sample in range(n_samples):
                     if sample==0:
                         actions = self.actor.get_action(**obs.to(self.device))[2]#sampled action
                         values = self.critic(obs,actions).view(-1)
