@@ -5,12 +5,12 @@ train_batch_size : 64             #Number of sub env for training
 psnr_reward : True             #Use PSNR as reward
 threshold_psnr: -25             #PSNR Threshold to end the episode
 threshold_rmse: -0.01             #Legacy
-sliders_to_use : ["contrast","exposure","shadows","highlights","whites"]            #Sliders to use
+sliders_to_use : ["temp","tint","vibrance","saturation"]            #Sliders to use
 features_size : 512             #Size of the features
 discretize_step: 0.01             #Step for discretization
 discretize : True             #Discretize the actions
 use_txt_features: False            #Use text features
 augment_data: False            #Augment the data
 pre_encoding_device: "cuda:0"            #Device to encode the images
-preprocessor_agent_path: None            #Path to the preprocessor agent
+preprocessor_agent_path: experiments/runs/SemanticBackbone__6_sliders_244_64__2024-07-21_18-18-08            #Path to the preprocessor agent
 backbone_warmup: 0            # start training the backbone after this number of episodes

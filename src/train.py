@@ -86,7 +86,7 @@ def main():
     torch.manual_seed(SEED)
     torch.backends.cudnn.deterministic = sac_config.torch_deterministic
     torch.autograd.set_detect_anomaly(True)
-
+    print()
     env = PhotoEnhancementEnv(
                         batch_size=env_config.train_batch_size,
                         imsize=env_config.imsize,
@@ -99,7 +99,7 @@ def main():
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
                         pre_encoding_device=env_config.pre_encoding_device,   
-                        preprocessor_agent_path=args.preprocessor_agent_path, 
+                        preprocessor_agent_path=env_config.preprocessor_agent_path, 
                         logger=None
     )
     test_env = PhotoEnhancementEnvTest(
@@ -114,7 +114,7 @@ def main():
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
                         pre_encoding_device=env_config.pre_encoding_device,
-                        preprocessor_agent_path=env.preprocessor_agent_path,    
+                        preprocessor_agent_path=env_config.preprocessor_agent_path,    
                         logger=None
     )
 
@@ -146,7 +146,7 @@ def main():
             episode_count = 0 
             agent.reset_env()
             envs_mean_rewards =[]
-            if agent.global_step>env.config.backbone_warmup:
+            if agent.global_step>env_config.backbone_warmup:
                 agent.backbone.train().requires_grad_(True)
             while True:     
                 episode_count+=1

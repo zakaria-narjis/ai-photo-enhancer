@@ -164,6 +164,7 @@ class PhotoEnhancementEnv(gym.Env):
                             pre_load_images=False,   
                             logger=None)# useless just to get the action space size for the Networks and whether to use txt features or not
         self.photo_editor = PhotoEditor(env_config.sliders_to_use)
+        inference_config.device = self.pre_encoding_device
         self.preprocessor_agent = InferenceAgent(inference_env, inference_config)
         self.preprocessor_agent.device = self.pre_encoding_device
         os.path.join(self.preprocessor_agent_path,'models','backbone.pth')
