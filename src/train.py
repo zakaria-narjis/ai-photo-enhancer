@@ -19,11 +19,6 @@ import os
 from pathlib import Path
 import re 
 
-# def getdatetime():
-#     c = datetime.now()
-#     rounded_seconds = round(c.second + c.microsecond / 1e6, 2)
-#     formatted_time = c.strftime('%Y-%m-%d_%H:%M:') + f'{rounded_seconds:05.2f}'
-#     return formatted_time
 
 def sanitize_filename(name):
     return re.sub(r'[^\w\-_\. ]', '_', name)
@@ -61,11 +56,6 @@ def main():
     logger.addHandler(console_handler)
     logger.setLevel(args.logger_level)
 
-    # with open("configs/hyperparameters.yaml") as f:
-    #     config_dict =yaml.load(f, Loader=yaml.FullLoader)
-
-    # with open("configs/config.yaml") as f:
-    #     env_config_dict =yaml.load(f, Loader=yaml.FullLoader)
     with open(args.sac_config) as f:
         config_dict =yaml.load(f, Loader=yaml.FullLoader)
 
@@ -80,9 +70,6 @@ def main():
     run_name = f"{exp_name}__{exp_tag}__{getdatetime()}"
     run_name = run_name[:255]  # Truncate to 255 characters to avoid potential issues with very long paths
     run_dir = os.path.join(args.outdir, run_name)  
-
-    # run_name = f"{sac_config.exp_name}__{args.experiment_tag}__{getdatetime()}"  
-    # run_dir = os.path.join(args.outdir, run_name)
 
 
     with make_dirs_and_open(os.path.join(run_dir, 'configs/sac_config.yaml'), 'w') as f:
@@ -112,6 +99,7 @@ def main():
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
                         pre_encoding_device=env_config.pre_encoding_device,   
+                        preprocessor_agent_path=args.preprocessor_agent_path, 
                         logger=None
     )
     test_env = PhotoEnhancementEnvTest(
@@ -125,7 +113,8 @@ def main():
                         discretize_step = env_config.discretize_step,
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
-                        pre_encoding_device=env_config.pre_encoding_device,   
+                        pre_encoding_device=env_config.pre_encoding_device,
+                        preprocessor_agent_path=env.preprocessor_agent_path,    
                         logger=None
     )
 
@@ -145,12 +134,20 @@ def main():
     )
     try:    
         agent = SAC(env,sac_config,writer)
+
+        if env.config.preprocessor_agent_path!=None: #Double agent mode
+            test_env.preprocessor_agent = env.preprocessor_agent # share the same preprocessor agent
+            agent.backbone.load_state_dict(env.preprocessor_agent.backbone.state_dict())
+            agent.backbone.eval().requires_grad_(False)
+            
         agent.start_time = time.time()
         logger.info(f'Start Training at {getdatetime()}')
         for i in tqdm(range(sac_config.total_timesteps), position=0, leave=True):
             episode_count = 0 
             agent.reset_env()
             envs_mean_rewards =[]
+            if agent.global_step>env.config.backbone_warmup:
+                agent.backbone.train().requires_grad_(True)
             while True:     
                 episode_count+=1
                 agent.global_step+=1

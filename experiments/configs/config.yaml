@@ -13,3 +13,6 @@ discretize : True
 use_txt_features: False
 augment_data: False
 pre_encoding_device: "cuda:14"
+
+preprocessor_agent_path: None            #Path to the preprocessor agent
+backbone_warmup: 0            # start training the backbone after this number of episodes

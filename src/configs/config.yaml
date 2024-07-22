@@ -1,14 +1,16 @@
-imsize : 64
-threshold : -70 #PSNR Threshold to end the episode
-test_batch_size : 500 #Number of sub env for testing
-train_batch_size : 64 #Number of sub env for training
-psnr_reward : True
-threshold_psnr: -25
-threshold_rmse: -0.01 #Legacy
-sliders_to_use : ["contrast","exposure","shadows","highlights","whites"]
-features_size : 512
-discretize_step: 0.01
-discretize : True
-use_txt_features: False
-augment_data: False
-pre_encoding_device: "cuda:0"
+imsize : 64            #Size of the images
+threshold : -70             #PSNR Threshold to end the episode
+test_batch_size : 500             #Number of sub env for testing
+train_batch_size : 64             #Number of sub env for training
+psnr_reward : True             #Use PSNR as reward
+threshold_psnr: -25             #PSNR Threshold to end the episode
+threshold_rmse: -0.01             #Legacy
+sliders_to_use : ["contrast","exposure","shadows","highlights","whites"]            #Sliders to use
+features_size : 512             #Size of the features
+discretize_step: 0.01             #Step for discretization
+discretize : True             #Discretize the actions
+use_txt_features: False            #Use text features
+augment_data: False            #Augment the data
+pre_encoding_device: "cuda:0"            #Device to encode the images
+preprocessor_agent_path: None            #Path to the preprocessor agent
+backbone_warmup: 0            # start training the backbone after this number of episodes
