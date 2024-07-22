@@ -1,10 +1,10 @@
-exp_name: "ResNetEncoder"
+exp_name: "SemanticBackbone"
 #the name of this experiment#
 seed: 1
 #seed of the experiment#
 torch_deterministic: true
 #if toggled, `torch.backends.cudnn.deterministic=False`#
-device: "cuda:7"
+device: "cuda:14"
 #if toggled, cuda will be enabled by default#rue
 track: false
 #if toggled, this experiment will be tracked with Weights and Biases#
@@ -13,19 +13,19 @@ track: false
 # Algorithm specific arguments
 total_timesteps: 80000
 #total timesteps of the experiments#
-buffer_size: 60000
+buffer_size: 40000
 #the replay memory buffer size#
 gamma: 0
 #the discount factor gamma#
 tau: 0.005
 #target smoothing coefficient (default: 0.005)#
-batch_size: 32
+batch_size: 64
 #the batch size of sample from the reply memory#
-learning_starts: 700
+learning_starts: 600
 #timestep to start learning#
 policy_lr: 0.0003
 #the learning rate of the policy network optimizer#
-q_lr: 0.0003
+q_lr: 0.003
 #the learning rate of the Q network network optimizer#
 policy_frequency: 2
 #the frequency of training policy (delayed)#

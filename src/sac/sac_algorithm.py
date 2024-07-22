@@ -1,11 +1,5 @@
-import multiprocessing as mp
 
-try:
-    mp.set_start_method('spawn')
-except RuntimeError:
-    pass 
-
-from .sac_networks import Actor, SoftQNetwork, Backbone
+from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone,SemanticBackboneOC
 
 import time
 
@@ -24,13 +18,20 @@ class SAC:
     def __init__(self,
                  env,
                  args,
-                 writer):
+                 writer, critic_only_backbone=False):
+        self.critic_only_backbone = critic_only_backbone
         self.env = env #train env
         self.device = args.device
         self.writer = writer
         self.args = args
         #networks
-        self.backbone = Backbone().to(self.device)
+        if self.env.use_txt_features=="embedded":
+            self.backbone = SemanticBackbone().to(self.device)
+        elif self.env.use_txt_features=="one_hot":
+            self.backbone = SemanticBackboneOC().to(self.device)
+        elif self.env.use_txt_features==False:
+            self.backbone = ResNETBackbone().to(self.device)      
+            
         self.actor = Actor(env,self.backbone).to(self.device)
         self.qf1 = SoftQNetwork(env,self.backbone).to(self.device)
         self.qf2 = SoftQNetwork(env,self.backbone).to(self.device)
@@ -38,6 +39,8 @@ class SAC:
         self.qf2_target = SoftQNetwork(env,self.backbone).to(self.device)
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
+
+
         self.q_optimizer = optim.Adam(list(self.qf1.parameters()) + list(self.qf2.parameters()), lr=args.q_lr)
         self.actor_optimizer = optim.Adam(list(self.actor.parameters()), lr=args.policy_lr)
     
@@ -49,7 +52,6 @@ class SAC:
         if args.autotune:
             # self.target_entropy = -torch.prod(torch.Tensor(env.action_space._shape[1]).to(self.device)).item()
             self.target_entropy = - env.action_space._shape[1]
-            print(env.action_space._shape,self.target_entropy)
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
             self.a_optimizer = optim.Adam([self.log_alpha], lr=args.q_lr)
@@ -79,10 +81,10 @@ class SAC:
         batch_obs = self.state.to(self.device)
 
         if self.global_step < self.args.learning_starts:
-            actions = self.env.action_space.sample(batch_obs.shape[0])
+            actions = self.env.action_space.sample(batch_obs.shape[0]).to(self.device)
         else:
-            actions, _, _ = self.actor.get_action(batch_obs)
-            actions = actions.detach().cpu()
+            actions, _, _ = self.actor.get_action(**batch_obs)
+            actions = actions.detach()
         next_batch_obs, rewards, dones = self.env.step(actions)
         batch_transition = TensorDict(
             {
@@ -101,12 +103,16 @@ class SAC:
         return rewards,dones
     
     def act_eval(self,obs):
-        self.backbone.eval()
-        self.actor.eval()
+        self.backbone.eval().requires_grad_(False)
+        self.qf1.eval().requires_grad_(False)
+        self.qf2.eval().requires_grad_(False)
+        self.actor.eval().requires_grad_(False)
         with torch.no_grad():
-            actions = self.actor.get_action(obs.to(self.device))
-        self.backbone.train()
-        self.actor.train()    
+            actions = self.actor.get_action(**obs.to(self.device))
+        self.backbone.train().requires_grad_(True)
+        self.qf1.train().requires_grad_(True)
+        self.qf2.train().requires_grad_(True)
+        self.actor.train().requires_grad_(True) 
         return actions
     
     def update(self,):
@@ -115,16 +121,16 @@ class SAC:
             data = self.rb.sample(self.args.batch_size).to(self.device)
             with torch.no_grad():
                 if self.args.gamma!=0:
-                    next_state_actions, next_state_log_pi, _ = self.actor.get_action(data["next_observations"])
-                    qf1_next_target = self.qf1_target(data["next_observations"], next_state_actions)
-                    qf2_next_target = self.qf2_target(data["next_observations"], next_state_actions)
+                    next_state_actions, next_state_log_pi, _ = self.actor.get_action(**data["next_observations"])
+                    qf1_next_target = self.qf1_target(**data["next_observations"], actions=next_state_actions)
+                    qf2_next_target = self.qf2_target(**data["next_observations"], actions=next_state_actions)
                     min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
                     next_q_value = data["rewards"].flatten() + (1 - data["dones"].to(torch.float32).flatten()) * self.args.gamma * (min_qf_next_target).view(-1)
                 else:
                     next_q_value = data["rewards"].flatten()
 
-            qf1_a_values = self.qf1(data["observations"], data["actions"]).view(-1)
-            qf2_a_values = self.qf2(data["observations"], data["actions"]).view(-1)
+            qf1_a_values = self.qf1(**data["observations"], actions = data["actions"]).view(-1)
+            qf2_a_values = self.qf2(**data["observations"], actions = data["actions"]).view(-1)
             qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
             qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
             qf_loss = qf1_loss + qf2_loss
@@ -135,12 +141,14 @@ class SAC:
             self.q_optimizer.step()
 
             if self.global_step % self.args.policy_frequency == 0:  # TD 3 Delayed update support
+                if self.critic_only_backbone:
+                    self.backbone.eval().requires_grad_(False)
                 for _ in range(
                     self.args.policy_frequency
                 ):  # compensate for the delay by doing 'actor_update_interval' instead of 1
-                    pi, log_pi, _ = self.actor.get_action(data["observations"])
-                    qf1_pi = self.qf1(data["observations"], pi)
-                    qf2_pi = self.qf2(data["observations"], pi)
+                    pi, log_pi, _ = self.actor.get_action(**data["observations"])
+                    qf1_pi = self.qf1(**data["observations"], actions=pi)
+                    qf2_pi = self.qf2(**data["observations"], actions=pi)
                     min_qf_pi = torch.min(qf1_pi, qf2_pi)
                     actor_loss = ((self.alpha * log_pi) - min_qf_pi).mean()
 
@@ -156,6 +164,8 @@ class SAC:
                         alpha_loss.backward()
                         self.a_optimizer.step()
                         self.alpha = self.log_alpha.exp().item()
+                if self.critic_only_backbone:
+                    self.backbone.train().requires_grad_(True)
 
             # update the target networks
             if self.args.gamma!=0:

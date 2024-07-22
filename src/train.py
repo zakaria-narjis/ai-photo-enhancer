@@ -13,10 +13,6 @@ import argparse
 import logging
 from sac.utils import *
 from tqdm.auto import tqdm
-try:
-    mp.set_start_method('spawn', force=True)
-except RuntimeError:
-    pass  
 
 from datetime import datetime
 import os
@@ -109,11 +105,13 @@ def main():
                         imsize=env_config.imsize,
                         training_mode=True,
                         done_threshold=env_config.threshold_psnr,
-                        pre_encode=False,
                         edit_sliders=env_config.sliders_to_use,
                         features_size=env_config.features_size,
                         discretize=env_config.discretize,
                         discretize_step= env_config.discretize_step,
+                        use_txt_features=env_config.use_txt_features,
+                        augment_data=env_config.augment_data,
+                        pre_encoding_device=env_config.pre_encoding_device,   
                         logger=None
     )
     test_env = PhotoEnhancementEnvTest(
@@ -121,11 +119,13 @@ def main():
                         imsize=env_config.imsize,
                         training_mode=False,
                         done_threshold=env_config.threshold_psnr,
-                        pre_encode=False,
                         edit_sliders=env_config.sliders_to_use,
                         features_size=env_config.features_size,
                         discretize=env_config.discretize,
                         discretize_step = env_config.discretize_step,
+                        use_txt_features=env_config.use_txt_features,
+                        augment_data=env_config.augment_data,
+                        pre_encoding_device=env_config.pre_encoding_device,   
                         logger=None
     )
 
@@ -167,17 +167,24 @@ def main():
                     episode_count=0           
                     break 
             if agent.global_step%200==0:
-                agent.backbone.eval()
+                agent.backbone.eval().requires_grad_(False)
+                agent.actor.eval().requires_grad_(False)
+                agent.qf1.eval().requires_grad_(False)
+                agent.qf2.eval().requires_grad_(False)
                 with torch.no_grad():
                     n_images = 5
                     obs = test_env.reset() 
-                    actions = agent.actor.get_action(obs.to(sac_config.device))
-                    _,rewards,dones = test_env.step(actions[0].cpu())
+                    actions = agent.actor.get_action(**obs.to(sac_config.device))
+                    _,rewards,dones = test_env.step(actions[0])
                     agent.writer.add_scalar("charts/test_mean_episodic_return", rewards.mean().item(), agent.global_step)
                     agent.writer.add_images("test_images",test_env.state['source_image'][:n_images],0)
                     agent.writer.add_images("test_images",test_env.state['enhanced_image'][:n_images],1)
                     agent.writer.add_images("test_images",test_env.state['target_image'][:n_images],2)
-                agent.backbone.train()
+                agent.backbone.train().requires_grad_(True)
+                agent.actor.train().requires_grad_(True)
+                agent.qf1.train().requires_grad_(True)
+                agent.qf2.train().requires_grad_(True)
+                
         logger.info(f'Ended training at {getdatetime()}')
         if args.save_model:
                 models_dir = os.path.join(run_dir, 'models')
@@ -187,7 +194,7 @@ def main():
                 save_actor_head(agent.actor, run_dir+'/models/actor_head.pth')
                 save_critic_head(agent.qf1, run_dir+'/models/qf1_head.pth')
                 save_critic_head(agent.qf2, run_dir+'/models/qf2_head.pth')
-
+        writer.close()
     except Exception as e:
         
         logger.exception("An error occurred during training")
@@ -200,7 +207,7 @@ def main():
                 save_actor_head(agent.actor, run_dir+'/models/actor_head.pth')
                 save_critic_head(agent.qf1, run_dir+'/models/qf1_head.pth')
                 save_critic_head(agent.qf2, run_dir+'/models/qf2_head.pth')
-
+        writer.close()
 
 if __name__=="__main__":
 
