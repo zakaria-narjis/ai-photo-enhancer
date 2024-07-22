@@ -1,4 +1,4 @@
-imsize : 64
+imsize : 224
 threshold : -70 #PSNR Threshold to end the episode
 test_batch_size : 500 #Number of sub env for testing
 train_batch_size : 64 #Number of sub env for training
@@ -12,4 +12,4 @@ discretize : True
 # ["contrast","exposure","shadows","highlights","whites"]
 use_txt_features: False
 augment_data: False
-pre_encoding_device: "cuda:0"
+pre_encoding_device: "cuda:14"

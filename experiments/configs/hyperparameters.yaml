@@ -4,7 +4,7 @@ seed: 1
 #seed of the experiment#
 torch_deterministic: true
 #if toggled, `torch.backends.cudnn.deterministic=False`#
-device: "cuda:0"
+device: "cuda:14"
 #if toggled, cuda will be enabled by default#rue
 track: false
 #if toggled, this experiment will be tracked with Weights and Biases#
@@ -25,7 +25,7 @@ learning_starts: 600
 #timestep to start learning#
 policy_lr: 0.0003
 #the learning rate of the policy network optimizer#
-q_lr: 0.0003
+q_lr: 0.003
 #the learning rate of the Q network network optimizer#
 policy_frequency: 2
 #the frequency of training policy (delayed)#

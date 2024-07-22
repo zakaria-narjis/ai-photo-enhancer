@@ -18,7 +18,7 @@ class SAC:
     def __init__(self,
                  env,
                  args,
-                 writer, critic_only_backbone=True):
+                 writer, critic_only_backbone=False):
         self.critic_only_backbone = critic_only_backbone
         self.env = env #train env
         self.device = args.device
