@@ -16,9 +16,44 @@ import random
 import matplotlib.pyplot as plt
 import torch
 class Config(object):
-    def __init__(self, dictionary):
-        self.__dict__.update(dictionary)
+    def __init__( dictionary):
+        __dict__.update(dictionary)
 
+def load_preprocessor_agent(preprocessor_agent_path,device):
+    current_dir = Path(__file__).parent.absolute()
+    with open(os.path.join(preprocessor_agent_path,"configs/sac_config.yaml")) as f:
+        sac_config_dict =yaml.load(f, Loader=yaml.FullLoader)
+    with open(os.path.join(preprocessor_agent_path,"configs/env_config.yaml")) as f:
+        env_config_dict =yaml.load(f, Loader=yaml.FullLoader)
+    with open(os.path.join(current_dir,"../configs/inference_config.yaml")) as f:
+        inf_config_dict =yaml.load(f, Loader=yaml.FullLoader)    
+    inference_config = Config(inf_config_dict)
+    sac_config = Config(sac_config_dict)
+    env_config = Config(env_config_dict)              
+    inference_env = PhotoEnhancementEnvTest(
+                        batch_size=env_config.train_batch_size,
+                        imsize=env_config.imsize,
+                        training_mode=False,
+                        done_threshold=env_config.threshold_psnr,
+                        edit_sliders=env_config.sliders_to_use,
+                        features_size=env_config.features_size,
+                        discretize=env_config.discretize,
+                        discretize_step= env_config.discretize_step,
+                        use_txt_features=env_config.use_txt_features,
+                        augment_data=False,
+                        pre_encoding_device=device,
+                        pre_load_images=False,   
+                        logger=None)# useless just to get the action space size for the Networks and whether to use txt features or not
+    preprocessor_photo_editor = PhotoEditor(env_config.sliders_to_use)
+    inference_config.device = device
+    preprocessor_agent = InferenceAgent(inference_env, inference_config)
+    preprocessor_agent.device = device
+    os.path.join(preprocessor_agent_path,'models','backbone.pth')
+    preprocessor_agent.load_backbone(os.path.join(preprocessor_agent_path,'models','backbone.pth'))
+    preprocessor_agent.load_actor_weights(os.path.join(preprocessor_agent_path,'models','actor_head.pth'))
+    preprocessor_agent.load_critics_weights(os.path.join(preprocessor_agent_path,'models','qf1_head.pth'),
+                                os.path.join(preprocessor_agent_path,'models','qf2_head.pth'))
+    return preprocessor_agent,preprocessor_photo_editor
 
 def main():
     current_dir = Path(__file__).parent.absolute()
@@ -72,7 +107,9 @@ def main():
                         discretize_step= env_config.discretize_step,
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
-                        pre_encoding_device=args.device,   
+                        pre_encoding_device= args.device,
+                        pre_load_images = True,
+                        preprocessor_agent_path=None ,  
                         logger=None
     )# useless just to get the action space size for the Networks and whether to use txt features or not
 
@@ -82,12 +119,14 @@ def main():
     inf_agent.load_actor_weights(os.path.join(args.experiment_path,'models','actor_head.pth'))
     inf_agent.load_critics_weights(os.path.join(args.experiment_path,'models','qf1_head.pth'),
                                    os.path.join(args.experiment_path,'models','qf2_head.pth'))
-
+    
+    if env_config.preprocessor_agent_path is not None:
+        preprocessor_agent,preprocessor_photo_editor = load_preprocessor_agent(env_config.preprocessor_agent_path,args.device)
     ssim_metric = StructuralSimilarityIndexMeasure().to(args.device)
     
     test_512 = create_dataloaders(batch_size=1,image_size=env_config.imsize,use_txt_features=False,
                        train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=args.device,pre_load_images=False)
-    test_64 = create_dataloaders(batch_size=500,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
+    test_resized = create_dataloaders(batch_size=500,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
                        train=False,augment_data=False,shuffle=False,resize=True,pre_encoding_device=args.device)
 
     
@@ -97,13 +136,18 @@ def main():
     logger.info(f'Testing ...')
     logger.info(f'Using device {args.device}')
     # batch_64_images = next(iter(test_64))[0]/255.0
-    inference_env.dataloader = test_64
-    inference_env.iter_dataloader = iter(test_64)
+    inference_env.dataloader = test_resized
+    inference_env.iter_dataloader = iter(test_resized)
     inference_env.batch_size = 500 
-    batch_64_images = inference_env.reset()
+    batch_images = inference_env.reset()
     logger.info(f'Computing optimal enhancement sliders values, DETERMINISTIC:{args.deterministic}')
-    
-    parameters = inf_agent.act(batch_64_images,deterministic=args.deterministic)
+    if env_config.preprocessor_agent_path is not None:
+        pre_parameters = preprocessor_agent.act(batch_images,deterministic=args.deterministic)
+        preprocessed_images = preprocessor_photo_editor(batch_images.permute(0,2,3,1), pre_parameters)
+        preprocessed_images = preprocessed_images.permute(0,3,1,2)
+    else:
+        preprocessed_images = batch_images
+    parameters = inf_agent.act(preprocessed_images,deterministic=args.deterministic)
 
     logger.info(f'Done')
     parameter_counter = 0
@@ -113,10 +157,17 @@ def main():
     random_indices = random.sample(range(len(test_512)), args.plt_samples)
     for i,t in tqdm(test_512, position=0, leave=True):
         source = i/255.0
-        target = t/255.0 
-        enhanced_image = photo_editor((source.permute(0,2,3,1)).to(args.device),parameters[parameter_counter].unsqueeze(0).to(args.device))
-        psnr = inference_env.compute_rewards(enhanced_image.permute(0,3,1,2).to(args.device),target.to(args.device)).item()+50
-        ssim = ssim_metric(enhanced_image.permute(0,3,1,2).to(args.device),target.to(args.device)).item()
+        target = t/255.0
+        if env_config.preprocessor_agent_path is not None:
+            enhanced_image = source.permute(0,2,3,1)
+            enhanced_image = preprocessor_photo_editor(enhanced_image.to(args.device),
+                                                       pre_parameters[parameter_counter].unsqueeze(0).to(args.device)) 
+        else:
+            enhanced_image = source.permute(0,2,3,1)
+        enhanced_image = photo_editor(enhanced_image.to(args.device),parameters[parameter_counter].unsqueeze(0).to(args.device))
+        enhanced_image = enhanced_image.permute(0,3,1,2) # B,C,H,W
+        psnr = inference_env.compute_rewards(enhanced_image.to(args.device),target.to(args.device)).item()+50
+        ssim = ssim_metric(enhanced_image.to(args.device),target.to(args.device)).item()
         PSNRS.append(psnr)
         SSIM.append(ssim)
         if  parameter_counter in random_indices:
