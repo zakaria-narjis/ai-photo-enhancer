@@ -176,12 +176,14 @@ def main():
                     actions = agent.actor.get_action(**obs.to(sac_config.device))
                     _,rewards,dones = test_env.step(actions[0])
                     agent.writer.add_scalar("charts/test_mean_episodic_return", rewards.mean().item(), agent.global_step)
-                    agent.writer.add_images("test_images",test_env.state['source_image'][:n_images],0)
-                    if env_config.preprocessor_agent_path!=None:           
-                        agent.writer.add_images("test_images",test_env.original_image[:n_images],1)
+                    
+                    if env_config.preprocessor_agent_path!=None:      
+                        agent.writer.add_images("test_images",test_env.original_image[:n_images],0)     
+                        agent.writer.add_images("test_images",test_env.state['source_image'][:n_images],1)                 
                         agent.writer.add_images("test_images",test_env.state['enhanced_image'][:n_images],2)
                         agent.writer.add_images("test_images",test_env.state['target_image'][:n_images],3)
                     else:
+                        agent.writer.add_images("test_images",test_env.state['source_image'][:n_images],0)
                         agent.writer.add_images("test_images",test_env.state['enhanced_image'][:n_images],1)
                         agent.writer.add_images("test_images",test_env.state['target_image'][:n_images],2)
                 agent.backbone.train().requires_grad_(True)
