@@ -194,8 +194,10 @@ class PhotoEnhancementEnv(gym.Env):
         # self.logger.debug('reset dataloader')
         self.iter_dataloader = iter(self.dataloader)
 
-    def generate_batch_obs_dict(self,):
-        if self.use_txt_features=="embedded":
+    def generate_batch_obs_dict(self,use_txt_features=None):
+        if use_txt_features==None:
+            use_txt_features = self.use_txt_features
+        if use_txt_features=="embedded":
             batch_observation= TensorDict(
                         {
                             "batch_images":self.state['source_image'],
@@ -205,7 +207,7 @@ class PhotoEnhancementEnv(gym.Env):
                         batch_size = [self.state['source_image'].shape[0]],
                     )            
 
-        elif self.use_txt_features=="one_hot":
+        elif use_txt_features=="one_hot":
             batch_observation= TensorDict(
                         {
                             "batch_images":self.state['source_image'],
@@ -241,7 +243,8 @@ class PhotoEnhancementEnv(gym.Env):
 
             if self.preprocessor_agent_path!=None:
                 self.original_image = self.state['source_image']
-                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict())
+                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict(
+                    self.preprocessor_agent.env.use_txt_features if hasattr(self.preprocessor_agent.env,'use_txt_features') else False))
             batch_observation= self.generate_batch_obs_dict()
 
         elif self.use_txt_features=="one_hot":
@@ -255,7 +258,8 @@ class PhotoEnhancementEnv(gym.Env):
             self.iter_dataloader_count += 1
             if self.preprocessor_agent_path!=None:
                 self.original_image = self.state['source_image']
-                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict())
+                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict(
+                    self.preprocessor_agent.env.use_txt_features if hasattr(self.preprocessor_agent.env,'use_txt_features') else False))
             batch_observation= self.generate_batch_obs_dict()
         else:
             source_image,target_image = next(self.iter_dataloader) 
@@ -267,7 +271,8 @@ class PhotoEnhancementEnv(gym.Env):
             }
             if self.preprocessor_agent_path!=None:
                 self.original_image = self.state['source_image']
-                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict())
+                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict(
+                    self.preprocessor_agent.env.use_txt_features if hasattr(self.preprocessor_agent.env,'use_txt_features') else False))
             batch_observation = self.generate_batch_obs_dict()
         return batch_observation
     
