@@ -16,8 +16,8 @@ import random
 import matplotlib.pyplot as plt
 import torch
 class Config(object):
-    def __init__( dictionary):
-        __dict__.update(dictionary)
+    def __init__(self,dictionary):
+        self.__dict__.update(dictionary)
 
 def load_preprocessor_agent(preprocessor_agent_path,device):
     current_dir = Path(__file__).parent.absolute()
@@ -55,11 +55,22 @@ def load_preprocessor_agent(preprocessor_agent_path,device):
                                 os.path.join(preprocessor_agent_path,'models','qf2_head.pth'))
     return preprocessor_agent,preprocessor_photo_editor
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+    
 def main():
     current_dir = Path(__file__).parent.absolute()
     parser = argparse.ArgumentParser()
     parser.add_argument('experiment_path', help='folder containing the experiment models')
-    parser.add_argument('--deterministic', nargs='?',type=bool, default=False)
+    parser.add_argument('--deterministic', type=str2bool, nargs='?', const=True, default=False)
+    # parser.add_argument('--pre_load_images', type=str2bool, nargs='?', const=True, default=True)
     parser.add_argument('--logger_level', type=int, default=logging.INFO)
     parser.add_argument('--device', nargs='?',type=str, default='cuda:0')
     parser.add_argument('--plt_samples', nargs='?',type=int, default=3)
@@ -84,7 +95,8 @@ def main():
     inference_config = Config(inf_config_dict)
     sac_config = Config(sac_config_dict)
     env_config = Config(env_config_dict)
-
+    if hasattr(env_config,'preprocessor_agent_path')==False:
+        env_config.preprocessor_agent_path = None
     SEED = sac_config.seed
 
     random.seed(SEED)
@@ -108,11 +120,10 @@ def main():
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
                         pre_encoding_device= args.device,
-                        pre_load_images = True,
-                        preprocessor_agent_path=None ,  
+                        pre_load_images = False,
+                        preprocessor_agent_path=None,  
                         logger=None
     )# useless just to get the action space size for the Networks and whether to use txt features or not
-
     inf_agent = InferenceAgent(inference_env, inference_config)
     os.path.join(args.experiment_path,'models','backbone.pth')
     inf_agent.load_backbone(os.path.join(args.experiment_path,'models','backbone.pth'))
@@ -127,9 +138,9 @@ def main():
     test_512 = create_dataloaders(batch_size=1,image_size=env_config.imsize,use_txt_features=False,
                        train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=args.device,pre_load_images=False)
     test_resized = create_dataloaders(batch_size=500,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
-                       train=False,augment_data=False,shuffle=False,resize=True,pre_encoding_device=args.device)
+                       train=False,augment_data=False,shuffle=False,resize=True,pre_encoding_device=args.device,
+                       pre_load_images=True)
 
-    
     PSNRS = []
     SSIM = []
 
