@@ -365,7 +365,7 @@ class PhotoEnhancementEnv(gym.Env):
 class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
     def __init__(self, batch_size, imsize, done_threshold, edit_sliders, features_size, 
     discretize, discretize_step, use_txt_features=False, augment_data=False, 
-    pre_encoding_device='cuda:0', training_mode=False, logger=None):
+    pre_encoding_device='cuda:0', training_mode=False,pre_load_images=True, preprocessor_agent_path=None, logger=None):
         super(PhotoEnhancementEnvTest, self).__init__(
             batch_size=batch_size,
             imsize=imsize,
@@ -378,5 +378,7 @@ class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
             use_txt_features=use_txt_features,
             augment_data=augment_data,
             pre_encoding_device=pre_encoding_device,
+            pre_load_images=pre_load_images,
+            preprocessor_agent_path=preprocessor_agent_path,
             logger=logger
         )
