@@ -9,11 +9,11 @@ sliders_to_use : ["temp","tint","vibrance","saturation"]
 features_size : 512
 discretize_step: 0.01
 discretize : True
-# ["contrast","exposure","shadows","highlights","whites"]
+# ["contrast","exposure","shadows","highlights","whites","blacks"]
 use_txt_features: False
 augment_data: False
 
-pre_load_images: False
+pre_load_images: True
 pre_encoding_device: "cuda:0"
 
 preprocessor_agent_path: "experiments/runs/SemanticBackbone__6_sliders_244_64__2024-07-21_18-18-08"            #Path to the preprocessor agent
