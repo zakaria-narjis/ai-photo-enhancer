@@ -135,7 +135,7 @@ def main():
     try:    
         agent = SAC(env,sac_config,writer)
 
-        if env.config.preprocessor_agent_path!=None: #Double agent mode
+        if env_config.preprocessor_agent_path!=None: #Double agent mode
             test_env.preprocessor_agent = env.preprocessor_agent # share the same preprocessor agent
             agent.backbone.load_state_dict(env.preprocessor_agent.backbone.state_dict())
             agent.backbone.eval().requires_grad_(False)
