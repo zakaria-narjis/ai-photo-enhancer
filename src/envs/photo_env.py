@@ -195,7 +195,7 @@ class PhotoEnhancementEnv(gym.Env):
         self.iter_dataloader = iter(self.dataloader)
 
     def generate_batch_obs_dict(self,use_txt_features=None):
-        if use_txt_features==None:
+        if use_txt_features==None:#use the current env use_txt_features
             use_txt_features = self.use_txt_features
         if use_txt_features=="embedded":
             batch_observation= TensorDict(
