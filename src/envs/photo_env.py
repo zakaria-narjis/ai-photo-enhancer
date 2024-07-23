@@ -144,7 +144,7 @@ class PhotoEnhancementEnv(gym.Env):
             sac_config_dict =yaml.load(f, Loader=yaml.FullLoader)
         with open(os.path.join(self.preprocessor_agent_path,"configs/env_config.yaml")) as f:
             env_config_dict =yaml.load(f, Loader=yaml.FullLoader)
-        with open(os.path.join("configs/inference_config.yaml")) as f:
+        with open(os.path.join("../configs/inference_config.yaml")) as f:
             inf_config_dict =yaml.load(f, Loader=yaml.FullLoader)    
         inference_config = Config(inf_config_dict)
         sac_config = Config(sac_config_dict)
