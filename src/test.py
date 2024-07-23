@@ -137,7 +137,7 @@ def main():
     
     test_512 = create_dataloaders(batch_size=1,image_size=env_config.imsize,use_txt_features=False,
                        train=False,augment_data=False,shuffle=False,resize=False,pre_encoding_device=args.device,pre_load_images=False)
-    test_resized = create_dataloaders(batch_size=500,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features,
+    test_resized = create_dataloaders(batch_size=500,image_size=env_config.imsize,use_txt_features=env_config.use_txt_features if hasattr(env_config,'use_txt_features') else False,
                        train=False,augment_data=False,shuffle=False,resize=True,pre_encoding_device=args.device,
                        pre_load_images=True)
 
