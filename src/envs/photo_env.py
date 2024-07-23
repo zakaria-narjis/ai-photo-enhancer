@@ -176,7 +176,7 @@ class PhotoEnhancementEnv(gym.Env):
         self.preprocessor_agent.load_critics_weights(os.path.join(self.preprocessor_agent_path,'models','qf1_head.pth'),
                                     os.path.join(self.preprocessor_agent_path,'models','qf2_head.pth'))
         
-    def compute_preprocessor_threshold(self,observation,improvement_threshold=5):
+    def compute_preprocessor_threshold(self,observation,improvement_threshold=2):
         with torch.no_grad():
             pre_batch_actions = self.preprocessor_agent.act(observation,deterministic=False,n_samples=0) #sampled actions
             pre_enhanced_image = self.preprocessor_photo_editor (self.state['source_image'].permute(0,2,3,1),pre_batch_actions)
