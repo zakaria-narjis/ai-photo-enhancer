@@ -15,7 +15,6 @@ class FiveKDataset(Dataset):
         dataset_dir = os.path.join(current_dir, "dataset")
         self.IMGS_PATH = os.path.join(dataset_dir, f"FiveK/{mode}")
         self.FEATURES_PATH = os.path.join(dataset_dir, "processed_categories_2.txt")
-        print(device)
         self.resize = resize
         self.image_size = image_size
         self.augment_data = augment_data

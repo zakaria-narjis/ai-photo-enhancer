@@ -99,6 +99,7 @@ def main():
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
                         pre_encoding_device=env_config.pre_encoding_device,   
+                        pre_load_images = env_config.pre_load_images,
                         preprocessor_agent_path=env_config.preprocessor_agent_path, 
                         logger=None
     )
@@ -114,6 +115,7 @@ def main():
                         use_txt_features=env_config.use_txt_features,
                         augment_data=env_config.augment_data,
                         pre_encoding_device=env_config.pre_encoding_device,
+                        pre_load_images = env_config.pre_load_images,
                         preprocessor_agent_path=env_config.preprocessor_agent_path,    
                         logger=None
     )

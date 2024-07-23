@@ -165,7 +165,7 @@ class PhotoEnhancementEnv(gym.Env):
                             pre_encoding_device=self.pre_encoding_device,
                             pre_load_images=False,   
                             logger=None)# useless just to get the action space size for the Networks and whether to use txt features or not
-        self.photo_editor = PhotoEditor(env_config.sliders_to_use)
+        self.preprocessor_photo_editor = PhotoEditor(env_config.sliders_to_use)
         inference_config.device = self.pre_encoding_device
         self.preprocessor_agent = InferenceAgent(inference_env, inference_config)
         self.preprocessor_agent.device = self.pre_encoding_device
@@ -178,7 +178,7 @@ class PhotoEnhancementEnv(gym.Env):
     def compute_preprocessor_threshold(self,observation,improvement_threshold=5):
         with torch.no_grad():
             pre_batch_actions = self.preprocessor_agent.act(observation,deterministic=False,n_samples=0) #sampled actions
-            pre_enhanced_image = self.photo_editor(self.state['source_image'].permute(0,2,3,1),pre_batch_actions)
+            pre_enhanced_image = self.preprocessor_photo_editor (self.state['source_image'].permute(0,2,3,1),pre_batch_actions)
             pre_enhanced_image = pre_enhanced_image.permute(0,3,1,2)
             pre_rewards = self.compute_rewards(pre_enhanced_image,self.state['target_image'])
             self.state['source_image'] = pre_enhanced_image
@@ -317,7 +317,6 @@ class PhotoEnhancementEnv(gym.Env):
         
         if self.discretize :
             batch_actions = torch.round((batch_actions+1)/self.discretize_step)*self.discretize_step-1
-         
         if self.use_txt_features=="embedded":
             source_images = self.state['source_image']
             target_images = self.state['target_image']

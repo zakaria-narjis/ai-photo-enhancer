@@ -12,7 +12,9 @@ discretize : True
 # ["contrast","exposure","shadows","highlights","whites"]
 use_txt_features: False
 augment_data: False
+
+pre_load_images: False
 pre_encoding_device: "cuda:0"
 
-preprocessor_agent_path: experiments/runs/SemanticBackbone__6_sliders_244_64__2024-07-21_18-18-08            #Path to the preprocessor agent
+preprocessor_agent_path: "experiments/runs/SemanticBackbone__6_sliders_244_64__2024-07-21_18-18-08"            #Path to the preprocessor agent
 backbone_warmup: 2000            # start training the backbone after this number of episodes
