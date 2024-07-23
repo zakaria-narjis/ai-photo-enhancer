@@ -53,8 +53,8 @@ class CrossModalAttention(nn.Module):
 class SemanticBackbone(nn.Module):
     def __init__(self,):
         super().__init__()
-        self.resnet = models.resnet18(weights='ResNet18_Weights.DEFAULT')
-        self.resnet  = torch.nn.Sequential(*(list(self.resnet.children())[:-1]))
+        self.model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        self.model  = torch.nn.Sequential(*(list(self.model.children())[:-1]))
         self.preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])#remove classifier
@@ -62,7 +62,7 @@ class SemanticBackbone(nn.Module):
 
     def forward(self, batch_images, ts_features, ims_features):
         res_f = self.preprocess(batch_images)
-        res_f = self.resnet(res_f)
+        res_f = self.model(res_f)
         res_f = torch.flatten(res_f,start_dim=-3,end_dim=-1)
         features = self.attention(ts_features, ims_features, res_f)
 
@@ -75,14 +75,14 @@ class SemanticBackboneOC(nn.Module):
     """
     def __init__(self,):
         super().__init__()
-        self.resnet = models.resnet18(weights='ResNet18_Weights.DEFAULT')
-        self.resnet  = torch.nn.Sequential(*(list(self.resnet.children())[:-1]))
+        self.model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        self.model  = torch.nn.Sequential(*(list(self.model.children())[:-1]))
         self.preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
     def forward(self,batch_images,ts_features):
         res_f = self.preprocess(batch_images)
-        res_f = self.resnet(res_f)
+        res_f = self.model(res_f)
         res_f = torch.flatten(res_f,start_dim=-3,end_dim=-1)
         res_f = torch.cat([res_f, ts_features], dim=1)
         return res_f
