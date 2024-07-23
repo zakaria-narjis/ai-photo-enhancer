@@ -175,9 +175,9 @@ class PhotoEnhancementEnv(gym.Env):
         self.preprocessor_agent.load_critics_weights(os.path.join(self.preprocessor_agent_path,'models','qf1_head.pth'),
                                     os.path.join(self.preprocessor_agent_path,'models','qf2_head.pth'))
         
-    def compute_preprocessor_threshold(self,improvement_threshold=5):
+    def compute_preprocessor_threshold(self,observation,improvement_threshold=5):
         with torch.no_grad():
-            pre_batch_actions = self.preprocessor_agent.act(self.state['source_image'],deterministic=False,n_samples=0) #sampled actions
+            pre_batch_actions = self.preprocessor_agent.act(observation,deterministic=False,n_samples=0) #sampled actions
             pre_enhanced_image = self.photo_editor(self.state['source_image'].permute(0,2,3,1),pre_batch_actions)
             pre_enhanced_image = pre_enhanced_image.permute(0,3,1,2)
             pre_rewards = self.compute_rewards(pre_enhanced_image,self.state['target_image'])
@@ -193,6 +193,34 @@ class PhotoEnhancementEnv(gym.Env):
         # self.logger.debug('reset dataloader')
         self.iter_dataloader = iter(self.dataloader)
 
+    def generate_batch_obs_dict(self,):
+        if self.use_txt_features=="embedded":
+            batch_observation= TensorDict(
+                        {
+                            "batch_images":self.state['source_image'],
+                            "ts_features":self.state['ts_features'],
+                            "ims_features":self.state['ims_features'],
+                        },
+                        batch_size = [self.state['source_image'].shape[0]],
+                    )            
+
+        elif self.use_txt_features=="one_hot":
+            batch_observation= TensorDict(
+                        {
+                            "batch_images":self.state['source_image'],
+                            "ts_features":self.state['ts_features'],
+                        },
+                        batch_size = [self.state['source_image'].shape[0]],
+                    )
+        else:
+            batch_observation = TensorDict(
+                        {
+                            "batch_images":self.state['source_image'],
+                        },
+                        batch_size = [self.state['source_image'].shape[0]],
+                    )
+        return batch_observation
+    
     def reset (self):
         # self.logger.debug('reset the episode')
         if self.iter_dataloader_count == len(self.iter_dataloader):
@@ -209,16 +237,11 @@ class PhotoEnhancementEnv(gym.Env):
                 'target_image':target_image/255.0,
             }
             self.iter_dataloader_count += 1
+
             if self.preprocessor_agent_path!=None:
-                self.done_threshold = self.compute_preprocessor_threshold()
-            batch_observation= TensorDict(
-                        {
-                            "batch_images":self.state['source_image'],
-                            "ts_features":self.state['ts_features'],
-                            "ims_features":self.state['ims_features'],
-                        },
-                        batch_size = [self.state['source_image'].shape[0]],
-                    )
+                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict())
+            batch_observation= self.generate_batch_obs_dict()
+
         elif self.use_txt_features=="one_hot":
             source_image, txt_features, target_image= next(self.iter_dataloader) 
             self.state = {
@@ -229,14 +252,8 @@ class PhotoEnhancementEnv(gym.Env):
             }
             self.iter_dataloader_count += 1
             if self.preprocessor_agent_path!=None:
-                self.done_threshold = self.compute_preprocessor_threshold()
-            batch_observation= TensorDict(
-                        {
-                            "batch_images":self.state['source_image'],
-                            "ts_features":self.state['ts_features'],
-                        },
-                        batch_size = [self.state['source_image'].shape[0]],
-                    )
+                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict())
+            batch_observation= self.generate_batch_obs_dict()
         else:
             source_image,target_image = next(self.iter_dataloader) 
             self.iter_dataloader_count += 1
@@ -246,13 +263,8 @@ class PhotoEnhancementEnv(gym.Env):
                 'target_image':target_image/255.0,
             }
             if self.preprocessor_agent_path!=None:
-                self.done_threshold = self.compute_preprocessor_threshold()
-            batch_observation = TensorDict(
-                        {
-                            "batch_images":self.state['source_image'],
-                        },
-                        batch_size = [self.state['source_image'].shape[0]],
-                    )
+                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict())
+            batch_observation = self.generate_batch_obs_dict()
         return batch_observation
     
 
@@ -318,7 +330,7 @@ class PhotoEnhancementEnv(gym.Env):
             done = self.check_done(rewards,self.done_threshold)      
             rewards[done]+=10
             self.state['enhanced_image'] = enhanced_image
-            batch_observation= TensorDict(
+            batch_observation = TensorDict(
                         {
                             "batch_images":enhanced_image,
                             "ts_features":ts_features,
