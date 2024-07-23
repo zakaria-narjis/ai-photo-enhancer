@@ -7,6 +7,7 @@ from typing import Sequence
 from tensordict import TensorDict
 import os
 import yaml
+from pathlib import Path
 from sac.sac_inference import InferenceAgent
 class Observation_Space:
     
@@ -20,7 +21,7 @@ class Observation_Space:
 
     def shape(self,):
         return self._shape
-    
+   
 class Action_Space:
 
     def __init__(self,
@@ -140,11 +141,12 @@ class PhotoEnhancementEnv(gym.Env):
                 self.load_preprocessor_agent()
 
     def load_preprocessor_agent(self,):
+        current_dir = Path(__file__).parent.absolute()
         with open(os.path.join(self.preprocessor_agent_path,"configs/sac_config.yaml")) as f:
             sac_config_dict =yaml.load(f, Loader=yaml.FullLoader)
         with open(os.path.join(self.preprocessor_agent_path,"configs/env_config.yaml")) as f:
             env_config_dict =yaml.load(f, Loader=yaml.FullLoader)
-        with open(os.path.join("../configs/inference_config.yaml")) as f:
+        with open(os.path.join(current_dir,"../configs/inference_config.yaml")) as f:
             inf_config_dict =yaml.load(f, Loader=yaml.FullLoader)    
         inference_config = Config(inf_config_dict)
         sac_config = Config(sac_config_dict)
