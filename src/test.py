@@ -182,6 +182,7 @@ def main():
         PSNRS.append(psnr)
         SSIM.append(ssim)
         if  parameter_counter in random_indices:
+            enhanced_image = enhanced_image.permute(0,2,3,1) # B,H,W,C
             plot_data.append((source.cpu(),enhanced_image.cpu(),target.cpu(),psnr,ssim))
         parameter_counter+=1
 
