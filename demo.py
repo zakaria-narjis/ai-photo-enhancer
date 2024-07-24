@@ -10,12 +10,12 @@ import os
 from src.envs.photo_env import PhotoEnhancementEnvTest
 from tensordict import TensorDict
 import torchvision.transforms.v2.functional as F
-
+from streamlit import cache_resource
 # Set page config to wide mode
 st.set_page_config(layout="wide")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = "experiments/runs/ResNet_6s__ResNet_224_aug__2024-07-22_14-52-08"
+MODEL_PATH = "experiments/runs/ResNet_10_sliders__224_128_aug__2024-07-23_21-23-35"
 SLIDERS = ['temp','tint','exposure', 'contrast','highlights','shadows', 'whites', 'blacks','vibrance','saturation']
 SLIDERS_ORD = ['contrast','exposure','temp','tint','whites','blacks','highlights','shadows','vibrance','saturation']
 
@@ -23,6 +23,7 @@ class Config(object):
     def __init__(self,dictionary):
         self.__dict__.update(dictionary)
 
+@cache_resource
 def load_preprocessor_agent(preprocessor_agent_path,device):
     with open(os.path.join(preprocessor_agent_path,"configs/sac_config.yaml")) as f:
         sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
@@ -97,11 +98,32 @@ def auto_enhance(image):
             output_parameters.append(0)
     return output_parameters
 
+def slider_callback():
+    for name in SLIDERS:
+        st.session_state.params[name] = st.session_state[f"slider_{name}"]
+    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+    
+def auto_enhance_callback():
+    auto_params = auto_enhance(image_tensor)
+    for i, name in enumerate(SLIDERS_ORD):
+        st.session_state[f"slider_{name}"] = int(auto_params[i])
+        st.session_state.params[name] = int(auto_params[i])
+    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+
+def reset_sliders():
+    for name in SLIDERS:
+        st.session_state[f"slider_{name}"] = 0
+        st.session_state.params[name] = 0
+    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+
 # Initialize session state
 if 'enhanced_image' not in st.session_state:
     st.session_state.enhanced_image = None
 if 'params' not in st.session_state:
     st.session_state.params = {name: 0 for name in SLIDERS}
+for name in SLIDERS:
+    if f"slider_{name}" not in st.session_state:
+        st.session_state[f"slider_{name}"] = 0
 
 # Set up the Streamlit app
 st.title("Photo Enhancement App")
@@ -113,7 +135,10 @@ if uploaded_file is not None:
     # Load the original image
     original_image = np.array(Image.open(uploaded_file))
     image_tensor = torch.from_numpy(original_image).float() / 255.0
-
+    
+    # Enhance the image initially
+    if st.session_state.enhanced_image is None:
+        st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
     # Sidebar for controls
     st.sidebar.title("Controls")
 
@@ -123,42 +148,59 @@ if uploaded_file is not None:
         ("Original", "Enhanced", "Comparison")
     )
 
-    st.sidebar.subheader("Adjustments")
-    slider_names = SLIDERS
-    
-    for name in slider_names:
-        st.session_state.params[name] = st.sidebar.slider(name.capitalize(), min_value=-100, max_value=100, value=st.session_state.params[name])
+    # Create two columns for the buttons
+    col1, col2 = st.sidebar.columns(2)
 
     # Button for auto-enhancement
-    if st.sidebar.button("Auto Enhance"):
-        auto_params = auto_enhance(image_tensor)
-        for i, name in enumerate(SLIDERS_ORD):
-            st.session_state.params[name] = int(auto_params[i])
-            
+    with col1:
+        st.button("Auto Enhance", on_click=auto_enhance_callback, key="auto_enhance_button")
 
-    # Enhance the image based on current parameters
-    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+    # Button for resetting sliders
+    with col2:
+        st.button("Reset", on_click=reset_sliders, key="reset_button")
+
+    st.sidebar.subheader("Adjustments")
+    slider_names = SLIDERS
+
+    for name in slider_names:
+        if f"slider_{name}" not in st.session_state:
+            st.session_state[f"slider_{name}"] = 0
+        
+        st.sidebar.slider(
+            name.capitalize(), 
+            min_value=-100, 
+            max_value=100, 
+            value=st.session_state[f"slider_{name}"],
+            key=f"slider_{name}",
+            on_change=slider_callback
+        )
 
     # Create a single column to maximize width
-    col1, = st.columns(1)
-
-    # Display the selected image or comparison in the main area
-    with col1:
+# Create three columns, using the middle one for content
+    left_spacer, content_column, right_spacer = st.columns([1, 3, 1])
+    # Use the middle column for the content
+    with content_column:
         if display_option == "Original":
             st.image(original_image, caption="Original Image", use_column_width=True)
         elif display_option == "Enhanced":
-            st.image(st.session_state.enhanced_image, caption="Enhanced Image", use_column_width=True)
+            if st.session_state.enhanced_image is not None:
+                st.image(st.session_state.enhanced_image, caption="Enhanced Image", use_column_width=True)
+            else:
+                st.warning("Enhanced image is not available. Try adjusting the sliders or clicking 'Auto Enhance'.")
         else:  # Comparison view
-            image_comparison(
-                img1=Image.fromarray(original_image),
-                img2=Image.fromarray(st.session_state.enhanced_image),
-                label1="Original",
-                label2="Enhanced",
-                width=700,
-                starting_position=50,
-                show_labels=True,
-                make_responsive=True,
-            )
+            if st.session_state.enhanced_image is not None:
+                image_comparison(
+                    img1=Image.fromarray(original_image),
+                    img2=Image.fromarray(st.session_state.enhanced_image),
+                    label1="Original",
+                    label2="Enhanced",
+                    width=850,  # You might want to adjust this value
+                    starting_position=50,
+                    show_labels=True,
+                    make_responsive=True,
+                )
+            else:
+                st.warning("Enhanced image is not available for comparison. Try adjusting the sliders or clicking 'Auto Enhance'.")
 
     # Add custom CSS to make the image comparison component responsive
     st.markdown("""
