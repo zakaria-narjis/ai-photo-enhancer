@@ -169,7 +169,7 @@ if uploaded_file is not None:
     # Select box to choose which image to display
     display_option = st.sidebar.selectbox(
         "Select view mode",
-        ("Original", "Enhanced", "Comparison")
+        ("Comparison", "Enhanced")
     )
 
     # Create two columns for the buttons
@@ -202,9 +202,7 @@ if uploaded_file is not None:
     # Create a single column to maximize width
     left_spacer, content_column, right_spacer = st.columns([1, 3, 1])
     with content_column:
-        if display_option == "Original":
-            st.image(st.session_state.original_image, caption="Original Image", use_column_width=True)
-        elif display_option == "Enhanced":
+        if display_option == "Enhanced":
             if st.session_state.enhanced_image is not None:
                 st.image(st.session_state.enhanced_image, caption="Enhanced Image", use_column_width=True)
             else:
