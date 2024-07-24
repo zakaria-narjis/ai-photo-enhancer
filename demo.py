@@ -41,7 +41,7 @@ def load_preprocessor_agent(preprocessor_agent_path,device):
     inference_env = PhotoEnhancementEnvTest(
         batch_size=env_config.train_batch_size,
         imsize=env_config.imsize,
-        training_mode=False,
+        training_mode=None,
         done_threshold=env_config.threshold_psnr,
         edit_sliders=env_config.sliders_to_use,
         features_size=env_config.features_size,
