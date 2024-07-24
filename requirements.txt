@@ -1,0 +1,16 @@
+opencv-python==4.10.0.84
+gdown==5.2.0
+gymnasium==0.29.1
+numpy==1.26.4
+Pillow==10.3.0
+scikit-learn==1.5.1
+tensordict==0.4.0
+torch==2.3.1
+torchvision==0.18.1
+tqdm==4.66.4
+pyyaml==6.0.1
+transformers==4.42.4
+tensorboard==2.17.0
+torchrl==0.4.0
+streamlit==1.36.0
+streamlit-image-comparison==0.0.4
