@@ -8,7 +8,10 @@ from tensordict import TensorDict
 import os
 import yaml
 from pathlib import Path
-from sac.sac_inference import InferenceAgent
+try:
+    from src.sac.sac_inference import InferenceAgent
+except:
+    from sac.sac_inference import InferenceAgent
 class Observation_Space:
     
     def __init__(self,
