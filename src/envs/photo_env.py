@@ -86,18 +86,18 @@ class PhotoEnhancementEnv(gym.Env):
             self.use_txt_features = use_txt_features
             self.preprocessor_agent_path = preprocessor_agent_path
             self.pre_encoding_device = pre_encoding_device
-
-            self.dataloader = create_dataloaders(
-                batch_size=batch_size,image_size=imsize,use_txt_features=use_txt_features,
-                train=training_mode,augment_data=augment_data,shuffle=True,
-                resize=True,pre_encoding_device=pre_encoding_device,pre_load_images=pre_load_images)
-            
+            if training_mode!=None:
+                self.dataloader = create_dataloaders(
+                    batch_size=batch_size,image_size=imsize,use_txt_features=use_txt_features,
+                    train=training_mode,augment_data=augment_data,shuffle=True,
+                    resize=True,pre_encoding_device=pre_encoding_device,pre_load_images=pre_load_images)
+                self.iter_dataloader_count = 0 #counts number of batch of samples seen by the agent
+                self.iter_dataloader = iter(self.dataloader) #iterator over the dataloader            
             self.edit_sliders = edit_sliders 
             self.photo_editor = PhotoEditor(sliders=edit_sliders)
             self.num_parameters = self.photo_editor.num_parameters
             self.features_size = features_size
-            self.iter_dataloader_count = 0 #counts number of batch of samples seen by the agent
-            self.iter_dataloader = iter(self.dataloader) #iterator over the dataloader
+
             if self.use_txt_features:
                 self.observation_space= Observation_Space(
                         shape = (self.batch_size, self.features_size*3),
