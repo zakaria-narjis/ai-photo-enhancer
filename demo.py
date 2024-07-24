@@ -118,6 +118,9 @@ def reset_sliders():
         st.session_state.params[name] = 0
     # st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
     st.session_state.enhanced_image = st.session_state.original_image
+
+def reset_enhanced_image():
+    st.session_state.enhanced_image = None
 def plot_histogram_streamlit(image):
     # Compute histogram for each channel
     hist_red = np.histogram(image[..., 0], bins=256, range=(0, 255))[0]
@@ -150,7 +153,7 @@ for name in SLIDERS:
 st.title("Photo Enhancement App")
 
 # File uploader in the main area
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"], on_change=reset_enhanced_image)
 
 if uploaded_file is not None:
     # Load the original image
