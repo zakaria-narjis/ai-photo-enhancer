@@ -359,15 +359,55 @@ class Hsv2Bgr:
 
         return bgr
     
+# class Srgb2Photopro:
+#     def __init__(self):
+#         self.num_parameters = 0
+
+#     def __call__(self, images):
+#         srgb = images.clone() 
+#         k = 0.055
+#         thre_srgb = 0.04045
+
+#         a = torch.tensor([[0.4124564, 0.3575761, 0.1804375],
+#                           [0.2126729, 0.7151522, 0.0721750],
+#                           [0.0193339, 0.1191920, 0.9503041]], dtype=torch.float32)
+#         b = torch.tensor([[1.3459433, -0.2556075, -0.0511118],
+#                           [-0.5445989, 1.5081673, 0.0205351],
+#                           [0.0000000, 0.0000000, 1.2118128]], dtype=torch.float32)
+
+#         M = torch.matmul(b, a)
+#         M = M / M.sum(dim=1, keepdim=True)
+
+#         thre_photopro = 1 / 512.0
+
+#         # sRGB to linear RGB
+#         srgb = torch.where(srgb <= thre_srgb, srgb / 12.92, ((srgb + k) / (1 + k)) ** 2.4)
+
+#         sb = srgb[..., 0:1]
+#         sg = srgb[..., 1:2]
+#         sr = srgb[..., 2:3]
+
+#         photopror = sr * M[0][0] + sg * M[0][1] + sb * M[0][2]
+#         photoprog = sr * M[1][0] + sg * M[1][1] + sb * M[1][2]
+#         photoprob = sr * M[2][0] + sg * M[2][1] + sb * M[2][2]
+
+#         photopro = torch.cat((photoprob, photoprog, photopror), dim=-1)
+#         photopro = torch.clamp(photopro, 0, 1)
+#         photopro = torch.where(photopro >= thre_photopro, photopro ** (1 / 1.8), photopro * 16)
+
+#         return photopro
+
 class Srgb2Photopro:
     def __init__(self):
         self.num_parameters = 0
-
-    def __call__(self, images):
-        srgb = images.clone() 
         k = 0.055
         thre_srgb = 0.04045
 
+        self.k = k
+        self.thre_srgb = thre_srgb
+        self.thre_photopro = 1 / 512.0
+
+        # Transformation matrices
         a = torch.tensor([[0.4124564, 0.3575761, 0.1804375],
                           [0.2126729, 0.7151522, 0.0721750],
                           [0.0193339, 0.1191920, 0.9503041]], dtype=torch.float32)
@@ -375,27 +415,36 @@ class Srgb2Photopro:
                           [-0.5445989, 1.5081673, 0.0205351],
                           [0.0000000, 0.0000000, 1.2118128]], dtype=torch.float32)
 
-        M = torch.matmul(b, a)
-        M = M / M.sum(dim=1, keepdim=True)
+        self.M = torch.matmul(b, a)
+        self.M = self.M / self.M.sum(dim=1, keepdim=True)
+    
+    def __call__(self, images):
+        srgb = images.clone()
+        
+        with torch.no_grad():  # Disable gradient computation for inference
+            # sRGB to linear RGB
+            srgb = torch.where(srgb <= self.thre_srgb, srgb / 12.92, ((srgb + self.k) / (1 + self.k)) ** 2.4)
 
-        thre_photopro = 1 / 512.0
+            sb = srgb[..., 0:1]
+            sg = srgb[..., 1:2]
+            sr = srgb[..., 2:3]
 
-        # sRGB to linear RGB
-        srgb = torch.where(srgb <= thre_srgb, srgb / 12.92, ((srgb + k) / (1 + k)) ** 2.4)
+            # Apply the transformation matrix
+            photopror = sr * self.M[0][0] + sg * self.M[0][1] + sb * self.M[0][2]
+            photoprog = sr * self.M[1][0] + sg * self.M[1][1] + sb * self.M[1][2]
+            photoprob = sr * self.M[2][0] + sg * self.M[2][1] + sb * self.M[2][2]
 
-        sb = srgb[..., 0:1]
-        sg = srgb[..., 1:2]
-        sr = srgb[..., 2:3]
+            photopro = torch.cat((photoprob, photoprog, photopror), dim=-1)
+            photopro = torch.clamp(photopro, 0, 1)
 
-        photopror = sr * M[0][0] + sg * M[0][1] + sb * M[0][2]
-        photoprog = sr * M[1][0] + sg * M[1][1] + sb * M[1][2]
-        photoprob = sr * M[2][0] + sg * M[2][1] + sb * M[2][2]
+            # Apply the Photopro gamma correction
+            photopro = torch.where(photopro >= self.thre_photopro, photopro ** (1 / 1.8), photopro * 16)
 
-        photopro = torch.cat((photoprob, photoprog, photopror), dim=-1)
-        photopro = torch.clamp(photopro, 0, 1)
-        photopro = torch.where(photopro >= thre_photopro, photopro ** (1 / 1.8), photopro * 16)
+            # Clear intermediate tensors
+            del srgb, sb, sg, sr, photopror, photoprog, photoprob
+            torch.cuda.empty_cache()
 
-        return photopro
+        return photopro    
     
 class Photopro2Srgb:
     def __init__(self):

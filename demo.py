@@ -11,6 +11,7 @@ from src.envs.photo_env import PhotoEnhancementEnvTest
 from tensordict import TensorDict
 import torchvision.transforms.v2.functional as F
 from streamlit import cache_resource
+import pandas as pd
 # Set page config to wide mode
 st.set_page_config(layout="wide")
 
@@ -116,6 +117,23 @@ def reset_sliders():
         st.session_state.params[name] = 0
     st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
 
+def plot_histogram_streamlit(image):
+    # Compute histogram for each channel
+    hist_red = np.histogram(image[..., 0], bins=256, range=(0, 255))[0]
+    hist_green = np.histogram(image[..., 1], bins=256, range=(0, 255))[0]
+    hist_blue = np.histogram(image[..., 2], bins=256, range=(0, 255))[0]
+    
+    # Create a DataFrame from histograms
+    histogram_data = np.array([hist_red, hist_green, hist_blue]).T
+    # Plot using Streamlit's area_chart
+    st.sidebar.area_chart(
+        pd.DataFrame(histogram_data, columns=['Red', 'Green', 'Blue']),
+        x=None,
+        y=['Red', 'Green', 'Blue'],
+        color=['#FF0000', '#00FF00', '#0000FF'],
+        use_container_width=True
+    )
+
 # Initialize session state
 if 'enhanced_image' not in st.session_state:
     st.session_state.enhanced_image = None
@@ -139,8 +157,12 @@ if uploaded_file is not None:
     # Enhance the image initially
     if st.session_state.enhanced_image is None:
         st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+    
     # Sidebar for controls
     st.sidebar.title("Controls")
+
+    # Display histogram
+    plot_histogram_streamlit(st.session_state.enhanced_image)
 
     # Select box to choose which image to display
     display_option = st.sidebar.selectbox(
@@ -176,9 +198,7 @@ if uploaded_file is not None:
         )
 
     # Create a single column to maximize width
-# Create three columns, using the middle one for content
     left_spacer, content_column, right_spacer = st.columns([1, 3, 1])
-    # Use the middle column for the content
     with content_column:
         if display_option == "Original":
             st.image(original_image, caption="Original Image", use_column_width=True)
