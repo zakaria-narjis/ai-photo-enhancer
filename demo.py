@@ -16,6 +16,7 @@ import pandas as pd
 st.set_page_config(layout="wide")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cpu")
 MODEL_PATH = "experiments/runs/ResNet_10_sliders__224_128_aug__2024-07-23_21-23-35"
 SLIDERS = ['temp','tint','exposure', 'contrast','highlights','shadows', 'whites', 'blacks','vibrance','saturation']
 SLIDERS_ORD = ['contrast','exposure','temp','tint','whites','blacks','highlights','shadows','vibrance','saturation']
@@ -115,8 +116,8 @@ def reset_sliders():
     for name in SLIDERS:
         st.session_state[f"slider_{name}"] = 0
         st.session_state.params[name] = 0
-    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
-
+    # st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+    st.session_state.enhanced_image = st.session_state.original_image
 def plot_histogram_streamlit(image):
     # Compute histogram for each channel
     hist_red = np.histogram(image[..., 0], bins=256, range=(0, 255))[0]
@@ -137,6 +138,8 @@ def plot_histogram_streamlit(image):
 # Initialize session state
 if 'enhanced_image' not in st.session_state:
     st.session_state.enhanced_image = None
+if 'original_image' not in st.session_state:
+    st.session_state.original_image = None
 if 'params' not in st.session_state:
     st.session_state.params = {name: 0 for name in SLIDERS}
 for name in SLIDERS:
@@ -151,12 +154,11 @@ uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png
 
 if uploaded_file is not None:
     # Load the original image
-    original_image = np.array(Image.open(uploaded_file))
-    image_tensor = torch.from_numpy(original_image).float() / 255.0
-    
+    st.session_state.original_image = np.array(Image.open(uploaded_file))
+    image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
     # Enhance the image initially
     if st.session_state.enhanced_image is None:
-        st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+        st.session_state.enhanced_image = st.session_state.original_image
     
     # Sidebar for controls
     st.sidebar.title("Controls")
@@ -201,7 +203,7 @@ if uploaded_file is not None:
     left_spacer, content_column, right_spacer = st.columns([1, 3, 1])
     with content_column:
         if display_option == "Original":
-            st.image(original_image, caption="Original Image", use_column_width=True)
+            st.image(st.session_state.original_image, caption="Original Image", use_column_width=True)
         elif display_option == "Enhanced":
             if st.session_state.enhanced_image is not None:
                 st.image(st.session_state.enhanced_image, caption="Enhanced Image", use_column_width=True)
@@ -210,7 +212,7 @@ if uploaded_file is not None:
         else:  # Comparison view
             if st.session_state.enhanced_image is not None:
                 image_comparison(
-                    img1=Image.fromarray(original_image),
+                    img1=Image.fromarray(st.session_state.original_image),
                     img2=Image.fromarray(st.session_state.enhanced_image),
                     label1="Original",
                     label2="Enhanced",

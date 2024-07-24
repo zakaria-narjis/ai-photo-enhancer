@@ -446,49 +446,101 @@ class Srgb2Photopro:
 
         return photopro    
     
+# class Photopro2Srgb:
+#     def __init__(self):
+#         self.num_parameters = 0
+
+#     def __call__(self, photopro_tensor):
+#         photopro = photopro_tensor.clone()  # Make a copy to avoid modifying the input tensor
+#         thre_photopro = 1/512.0*16
+
+#         a = torch.tensor([[0.4124564, 0.3575761, 0.1804375],
+#                           [0.2126729, 0.7151522, 0.0721750],
+#                           [0.0193339, 0.1191920, 0.9503041]], dtype=torch.float32)
+#         b = torch.tensor([[1.3459433, -0.2556075, -0.0511118],
+#                           [-0.5445989, 1.5081673, 0.0205351],
+#                           [0.0000000, 0.0000000, 1.2118128]], dtype=torch.float32)
+#         M = torch.matmul(b, a)
+#         M = M / M.sum(dim=1, keepdim=True)
+#         M = torch.linalg.inv(M)
+#         k = 0.055
+#         thre_srgb = 0.04045 / 12.92
+
+#         # Apply transformations
+#         mask = photopro < thre_photopro
+#         photopro[mask] *= 1.0 / 16
+#         photopro[~mask] = photopro[~mask] ** 1.8
+
+#         photoprob = photopro[:, :, :, 0:1]
+#         photoprog = photopro[:, :, :, 1:2]
+#         photopror = photopro[:, :, :, 2:3]
+
+#         sr = photopror * M[0, 0] + photoprog * M[0, 1] + photoprob * M[0, 2]
+#         sg = photopror * M[1, 0] + photoprog * M[1, 1] + photoprob * M[1, 2]
+#         sb = photopror * M[2, 0] + photoprog * M[2, 1] + photoprob * M[2, 2]
+
+#         srgb = torch.cat((sb, sg, sr), dim=-1)
+
+#         # Clip and apply final transformations
+#         srgb = torch.clamp(srgb, 0, 1)
+#         mask = srgb > thre_srgb
+#         srgb[mask] = (1 + k) * srgb[mask] ** (1 / 2.4) - k
+#         srgb[~mask] *= 12.92
+
+#         return srgb
+
 class Photopro2Srgb:
     def __init__(self):
         self.num_parameters = 0
+        self.k = 0.055
+        self.thre_srgb = 0.04045 / 12.92
+        self.thre_photopro = 1 / 512.0 * 16
 
-    def __call__(self, photopro_tensor):
-        photopro = photopro_tensor.clone()  # Make a copy to avoid modifying the input tensor
-        thre_photopro = 1/512.0*16
-
+        # Transformation matrices
         a = torch.tensor([[0.4124564, 0.3575761, 0.1804375],
                           [0.2126729, 0.7151522, 0.0721750],
                           [0.0193339, 0.1191920, 0.9503041]], dtype=torch.float32)
         b = torch.tensor([[1.3459433, -0.2556075, -0.0511118],
                           [-0.5445989, 1.5081673, 0.0205351],
                           [0.0000000, 0.0000000, 1.2118128]], dtype=torch.float32)
-        M = torch.matmul(b, a)
-        M = M / M.sum(dim=1, keepdim=True)
-        M = torch.linalg.inv(M)
-        k = 0.055
-        thre_srgb = 0.04045 / 12.92
 
-        # Apply transformations
-        mask = photopro < thre_photopro
-        photopro[mask] *= 1.0 / 16
-        photopro[~mask] = photopro[~mask] ** 1.8
+        self.M = torch.matmul(b, a)
+        self.M = self.M / self.M.sum(dim=1, keepdim=True)
+        self.M_inv = torch.linalg.inv(self.M)
+    
+    def __call__(self, photopro_tensor):
+        with torch.no_grad():  # Disable gradient computation for inference
+            photopro = photopro_tensor.clone()  # Make a copy to avoid modifying the input tensor
+            photopro = photopro.to(torch.float16)
+            # Apply gamma correction
+            mask = photopro < self.thre_photopro
+            photopro[mask] *= 1.0 / 16
+            photopro[~mask] = photopro[~mask] ** 1.8
 
-        photoprob = photopro[:, :, :, 0:1]
-        photoprog = photopro[:, :, :, 1:2]
-        photopror = photopro[:, :, :, 2:3]
+            # Separate channels
+            photoprob = photopro[..., 0:1]
+            photoprog = photopro[..., 1:2]
+            photopror = photopro[..., 2:3]
 
-        sr = photopror * M[0, 0] + photoprog * M[0, 1] + photoprob * M[0, 2]
-        sg = photopror * M[1, 0] + photoprog * M[1, 1] + photoprob * M[1, 2]
-        sb = photopror * M[2, 0] + photoprog * M[2, 1] + photoprob * M[2, 2]
+            # Apply the inverse transformation matrix
+            sr = photopror * self.M_inv[0, 0] + photoprog * self.M_inv[0, 1] + photoprob * self.M_inv[0, 2]
+            sg = photopror * self.M_inv[1, 0] + photoprog * self.M_inv[1, 1] + photoprob * self.M_inv[1, 2]
+            sb = photopror * self.M_inv[2, 0] + photoprog * self.M_inv[2, 1] + photoprob * self.M_inv[2, 2]
+            del photopror, photoprog, photoprob
+            srgb = torch.cat((sb, sg, sr), dim=-1)
+            del sr, sg, sb
+            # Apply sRGB transformation
+            srgb = torch.clamp(srgb, 0, 1)
+            mask = srgb > self.thre_srgb
+            srgb[mask] = (1 + self.k) * srgb[mask] ** (1 / 2.4) - self.k
+            srgb[~mask] *= 12.92
 
-        srgb = torch.cat((sb, sg, sr), dim=-1)
-
-        # Clip and apply final transformations
-        srgb = torch.clamp(srgb, 0, 1)
-        mask = srgb > thre_srgb
-        srgb[mask] = (1 + k) * srgb[mask] ** (1 / 2.4) - k
-        srgb[~mask] *= 12.92
+            # Clear intermediate tensors
+            del mask
+            torch.cuda.empty_cache()
 
         return srgb
-    
+   
 class PhotoEditor():
     def __init__(self,sliders= 'all'):
         self.edit_funcs = [Srgb2Photopro(), AdjustDehaze(), AdjustClarity(), AdjustContrast(),
