@@ -128,14 +128,21 @@ def plot_histogram_streamlit(image):
     hist_blue = np.histogram(image[..., 2], bins=256, range=(0, 255))[0]
     
     # Create a DataFrame from histograms
-    histogram_data = np.array([hist_red, hist_green, hist_blue]).T
-    # Plot using Streamlit's area_chart
-    st.sidebar.area_chart(
-        pd.DataFrame(histogram_data, columns=['Red', 'Green', 'Blue']),
-        x=None,
-        y=['Red', 'Green', 'Blue'],
-        color=['#FF0000', '#00FF00', '#0000FF'],
-        use_container_width=True
+    df = pd.DataFrame({
+        'Red': hist_red,
+        'Green': hist_green,
+        'Blue': hist_blue
+    })
+    
+    # Normalize the data
+    df = df / df.max().max()
+    
+    # Plot using Streamlit's bar_chart
+    st.sidebar.bar_chart(
+        df,
+        use_container_width=True,
+        height=200,
+        color = ["#FF0000", "#00FF00", "#0000FF"]
     )
 
 # Initialize session state
