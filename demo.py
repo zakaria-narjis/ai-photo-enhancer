@@ -16,7 +16,7 @@ import pandas as pd
 st.set_page_config(layout="wide")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEVICE = torch.device("cpu")
+# DEVICE = torch.device("cpu")
 MODEL_PATH = "experiments/runs/ResNet_10_sliders__224_128_aug__2024-07-23_21-23-35"
 SLIDERS = ['temp','tint','exposure', 'contrast','highlights','shadows', 'whites', 'blacks','vibrance','saturation']
 SLIDERS_ORD = ['contrast','exposure','temp','tint','whites','blacks','highlights','shadows','vibrance','saturation']
@@ -76,7 +76,7 @@ def enhance_image(image:np.array, params:dict):
     enhanced_image = (enhanced_image*255).astype(np.uint8)
     return enhanced_image
 
-def auto_enhance(image):
+def auto_enhance(image,deterministic=True):
     input_image = image.unsqueeze(0).to(DEVICE)
     input_image = input_image.permute(0,3,1,2)
     IMAGE_SIZE = enhancer_agent.env.imsize
@@ -87,7 +87,7 @@ def auto_enhance(image):
         },
         batch_size = [input_image.shape[0]],
     )
-    parameters = enhancer_agent.act(batch_observation,deterministic=True)
+    parameters = enhancer_agent.act(batch_observation,deterministic=deterministic,n_samples=0)
     parameters = parameters.squeeze(0)*100.0
     parameters = torch.round(parameters)
     output_parameters = []
@@ -103,14 +103,24 @@ def auto_enhance(image):
 def slider_callback():
     for name in SLIDERS:
         st.session_state.params[name] = st.session_state[f"slider_{name}"]
-    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
-    
+    image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
+    st.session_state.enhanced_image = enhance_image(image_tensor.to(torch.float16), st.session_state.params)
+
+def auto_random_enhance_callback():
+    image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
+    auto_params = auto_enhance(image_tensor,deterministic=False)
+    for i, name in enumerate(SLIDERS_ORD):
+        st.session_state[f"slider_{name}"] = int(auto_params[i])
+        st.session_state.params[name] = int(auto_params[i])
+    st.session_state.enhanced_image = enhance_image(image_tensor.to(torch.float16), st.session_state.params)
+
 def auto_enhance_callback():
+    image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
     auto_params = auto_enhance(image_tensor)
     for i, name in enumerate(SLIDERS_ORD):
         st.session_state[f"slider_{name}"] = int(auto_params[i])
         st.session_state.params[name] = int(auto_params[i])
-    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+    st.session_state.enhanced_image = enhance_image(image_tensor.to(torch.float16), st.session_state.params)
 
 def reset_sliders():
     for name in SLIDERS:
@@ -119,8 +129,10 @@ def reset_sliders():
     # st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
     st.session_state.enhanced_image = st.session_state.original_image
 
-def reset_enhanced_image():
-    st.session_state.enhanced_image = None
+def reset_on_upload():
+    st.session_state.original_image = None
+    reset_sliders()
+
 def plot_histogram_streamlit(image):
     # Compute histogram for each channel
     hist_red = np.histogram(image[..., 0], bins=256, range=(0, 255))[0]
@@ -160,12 +172,12 @@ for name in SLIDERS:
 st.title("Photo Enhancement App")
 
 # File uploader in the main area
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"], on_change=reset_enhanced_image)
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png",".tif"], on_change=reset_on_upload)
 
 if uploaded_file is not None:
     # Load the original image
-    st.session_state.original_image = np.array(Image.open(uploaded_file))
-    image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
+    st.session_state.original_image = np.array(Image.open(uploaded_file).convert('RGB'),dtype=np.uint16)
+
     # Enhance the image initially
     if st.session_state.enhanced_image is None:
         st.session_state.enhanced_image = st.session_state.original_image
@@ -183,15 +195,17 @@ if uploaded_file is not None:
     )
 
     # Create two columns for the buttons
-    col1, col2 = st.sidebar.columns(2)
+    col1, col2,col3 = st.sidebar.columns(3)
 
     # Button for auto-enhancement
     with col1:
-        st.button("Auto Enhance", on_click=auto_enhance_callback, key="auto_enhance_button")
-
-    # Button for resetting sliders
+        st.button("Auto Enhance", on_click=auto_enhance_callback, key="auto_enhance_button",use_container_width=True)
+    
     with col2:
-        st.button("Reset", on_click=reset_sliders, key="reset_button")
+        st.button("Auto Random Enhance", on_click=auto_random_enhance_callback, key="auto_random_enhance_button",use_container_width=True)
+    # Button for resetting sliders
+    with col3:
+        st.button("Reset", on_click=reset_sliders, key="reset_button",use_container_width=True)
 
     st.sidebar.subheader("Adjustments")
     slider_names = SLIDERS
@@ -214,14 +228,14 @@ if uploaded_file is not None:
     with content_column:
         if display_option == "Enhanced":
             if st.session_state.enhanced_image is not None:
-                st.image(st.session_state.enhanced_image, caption="Enhanced Image", use_column_width=True)
+                st.image(st.session_state.enhanced_image.astype(np.uint8), caption="Enhanced Image", use_column_width=True)
             else:
                 st.warning("Enhanced image is not available. Try adjusting the sliders or clicking 'Auto Enhance'.")
         else:  # Comparison view
             if st.session_state.enhanced_image is not None:
                 image_comparison(
-                    img1=Image.fromarray(st.session_state.original_image),
-                    img2=Image.fromarray(st.session_state.enhanced_image),
+                    img1=Image.fromarray(st.session_state.original_image.astype(np.uint8)),
+                    img2=Image.fromarray(st.session_state.enhanced_image.astype(np.uint8)),
                     label1="Original",
                     label2="Enhanced",
                     width=850,  # You might want to adjust this value
