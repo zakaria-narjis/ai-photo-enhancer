@@ -511,7 +511,7 @@ class Photopro2Srgb:
     def __call__(self, photopro_tensor):
         with torch.no_grad():  # Disable gradient computation for inference
             photopro = photopro_tensor.clone()  # Make a copy to avoid modifying the input tensor
-            photopro = photopro.to(torch.float16)
+            # photopro = photopro.to(torch.float16)
             # Apply gamma correction
             mask = photopro < self.thre_photopro
             photopro[mask] *= 1.0 / 16

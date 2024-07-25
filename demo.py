@@ -12,6 +12,9 @@ from tensordict import TensorDict
 import torchvision.transforms.v2.functional as F
 from streamlit import cache_resource
 import pandas as pd
+from bokeh.plotting import figure
+from bokeh.models import ColumnDataSource
+from bokeh.palettes import Spectral3
 # Set page config to wide mode
 st.set_page_config(layout="wide")
 
@@ -104,7 +107,7 @@ def slider_callback():
     for name in SLIDERS:
         st.session_state.params[name] = st.session_state[f"slider_{name}"]
     image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
-    st.session_state.enhanced_image = enhance_image(image_tensor.to(torch.float16), st.session_state.params)
+    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
 
 def auto_random_enhance_callback():
     image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
@@ -112,7 +115,7 @@ def auto_random_enhance_callback():
     for i, name in enumerate(SLIDERS_ORD):
         st.session_state[f"slider_{name}"] = int(auto_params[i])
         st.session_state.params[name] = int(auto_params[i])
-    st.session_state.enhanced_image = enhance_image(image_tensor.to(torch.float16), st.session_state.params)
+    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
 
 def auto_enhance_callback():
     image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
@@ -120,7 +123,7 @@ def auto_enhance_callback():
     for i, name in enumerate(SLIDERS_ORD):
         st.session_state[f"slider_{name}"] = int(auto_params[i])
         st.session_state.params[name] = int(auto_params[i])
-    st.session_state.enhanced_image = enhance_image(image_tensor.to(torch.float16), st.session_state.params)
+    st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
 
 def reset_sliders():
     for name in SLIDERS:
@@ -133,30 +136,67 @@ def reset_on_upload():
     st.session_state.original_image = None
     reset_sliders()
 
-def plot_histogram_streamlit(image):
-    # Compute histogram for each channel
-    hist_red = np.histogram(image[..., 0], bins=256, range=(0, 255))[0]
-    hist_green = np.histogram(image[..., 1], bins=256, range=(0, 255))[0]
-    hist_blue = np.histogram(image[..., 2], bins=256, range=(0, 255))[0]
-    
-    # Create a DataFrame from histograms
-    df = pd.DataFrame({
-        'Red': hist_red,
-        'Green': hist_green,
-        'Blue': hist_blue
-    })
-    
-    # Normalize the data
-    df = df / df.max().max()
-    
-    # Plot using Streamlit's bar_chart
-    st.sidebar.bar_chart(
-        df,
-        use_container_width=True,
-        height=200,
-        color = ["#FF0000", "#00FF00", "#0000FF"]
-    )
+def create_smooth_histogram(image):
+    # Compute histograms for each channel
+    bins = np.linspace(0, 255, 256)
+    hist_r, _ = np.histogram(image[..., 0], bins=bins)
+    hist_g, _ = np.histogram(image[..., 1], bins=bins)
+    hist_b, _ = np.histogram(image[..., 2], bins=bins)
 
+    # Normalize the histograms
+    def normalize_histogram(hist):
+        hist_central = hist[1:-1]
+        hist_max = np.max(hist_central)
+        hist_min = np.min(hist_central)
+        
+        hist_normalized = (hist_central - hist_min) / (hist_max - hist_min)
+        
+        hist[0] = min(hist[0] / hist_max, 1)
+        hist[-1] = min(hist[-1] / hist_max, 1)
+        
+        return np.concatenate(([hist[0]], hist_normalized, [hist[-1]]))
+
+    hist_r_norm = normalize_histogram(hist_r)
+    hist_g_norm = normalize_histogram(hist_g)
+    hist_b_norm = normalize_histogram(hist_b)
+
+    # Create Bokeh figure with transparent background
+    p = figure(width=300, height=150, toolbar_location=None, 
+               x_range=(0, 255), y_range=(0, 1.1),
+               background_fill_color=None,
+               border_fill_color=None,
+               outline_line_color=None)
+
+    # Remove all axes, labels, and grids
+    p.axis.visible = False
+    p.xgrid.grid_line_color = None
+    p.ygrid.grid_line_color = None
+
+    # Create ColumnDataSource for each channel
+    source_r = ColumnDataSource(data=dict(left=bins[:-1], right=bins[1:], top=hist_r_norm))
+    source_g = ColumnDataSource(data=dict(left=bins[:-1], right=bins[1:], top=hist_g_norm))
+    source_b = ColumnDataSource(data=dict(left=bins[:-1], right=bins[1:], top=hist_b_norm))
+
+    # Plot the histograms
+    p.quad(bottom=0, top='top', left='left', right='right', source=source_r,
+           fill_color="red", fill_alpha=0.9, line_color=None)
+    p.quad(bottom=0, top='top', left='left', right='right', source=source_g,
+           fill_color="green", fill_alpha=0.9, line_color=None)
+    p.quad(bottom=0, top='top', left='left', right='right', source=source_b,
+           fill_color="blue", fill_alpha=0.9, line_color=None)
+
+    # Remove padding
+    p.min_border_left = 0
+    p.min_border_right = 0
+    p.min_border_top = 0
+    p.min_border_bottom = 0
+
+    return p
+
+# In your Streamlit app
+def plot_histogram_streamlit(image):
+    histogram = create_smooth_histogram(image)
+    st.sidebar.bokeh_chart(histogram, use_container_width=True)
 # Initialize session state
 if 'enhanced_image' not in st.session_state:
     st.session_state.enhanced_image = None
