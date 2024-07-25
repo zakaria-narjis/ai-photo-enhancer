@@ -226,6 +226,7 @@ if uploaded_file is not None:
     st.sidebar.title("Controls")
 
     # Display histogram
+    st.sidebar.subheader("Colors Histogram")
     plot_histogram_streamlit(st.session_state.enhanced_image)
 
     # Select box to choose which image to display

@@ -14,3 +14,4 @@ tensorboard==2.17.0
 torchrl==0.4.0
 streamlit==1.36.0
 streamlit-image-comparison==0.0.4
+bokeh==2.4.3
