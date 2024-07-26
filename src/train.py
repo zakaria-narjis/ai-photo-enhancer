@@ -165,7 +165,7 @@ def main():
                 if (batch_dones==True).all()==True or episode_count==sac_config.max_episode_timesteps:
                     episode_count=0           
                     break 
-            if agent.global_step%200==0:
+            if agent.global_step%200==0 and agent.global_step>=agent.args.learning_starts:
                 agent.backbone.eval().requires_grad_(False)
                 agent.actor.eval().requires_grad_(False)
                 agent.qf1.eval().requires_grad_(False)

@@ -98,7 +98,7 @@ class PhotoEnhancementEnv(gym.Env):
             self.num_parameters = self.photo_editor.num_parameters
             self.features_size = features_size
 
-            if self.use_txt_features:
+            if self.use_txt_features=="embedded":
                 self.observation_space= Observation_Space(
                         shape = (self.batch_size, self.features_size*3),
                         dtype = torch.float32)

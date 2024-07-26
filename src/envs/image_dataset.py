@@ -12,7 +12,7 @@ class FiveKDataset(Dataset):
                  augment_data=False, use_txt_features=False, device='cuda',
                  pre_load_images=True):
         current_dir = os.getcwd()
-        dataset_dir = os.path.join(current_dir,"..","dataset")
+        dataset_dir = os.path.join(current_dir,"dataset")
         self.IMGS_PATH = os.path.join(dataset_dir, f"FiveK/{mode}")
         self.FEATURES_PATH = os.path.join(dataset_dir, "processed_categories_2.txt")
         self.resize = resize
