@@ -1,5 +1,5 @@
 
-from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone,SemanticBackboneOC
+from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone,SemanticBackboneOC, ResNETHistBackbone
 
 import time
 
@@ -29,6 +29,8 @@ class SAC:
             self.backbone = SemanticBackbone().to(self.device)
         elif self.env.use_txt_features=="one_hot":
             self.backbone = SemanticBackboneOC().to(self.device)
+        elif self.env.use_txt_features=="histogram":
+            self.backbone = ResNETHistBackbone().to(self.device)
         elif self.env.use_txt_features==False:
             self.backbone = ResNETBackbone().to(self.device)      
             

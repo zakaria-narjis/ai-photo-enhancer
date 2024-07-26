@@ -21,7 +21,20 @@ class ResNETBackbone(nn.Module):
         features = self.model(x)
         features=torch.flatten(features,start_dim=-3,end_dim=-1)
         return features
-
+class ResNETHistBackbone(nn.Module):
+    def __init__(self,):
+        super().__init__()
+        self.model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        self.model = torch.nn.Sequential(*(list(self.model.children())[:-1]))
+        self.preprocess = transforms.Compose([
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])#remove classifier
+    def forward(self,batch_images,histogram):
+        x = self.preprocess (batch_images)
+        features = self.model(x)      
+        features=torch.flatten(features,start_dim=-3,end_dim=-1)
+        features = torch.cat([features, histogram], dim=1)
+        return features
 class CrossModalAttention(nn.Module):
     def __init__(self, bert_dim=768, clip_dim=512, resnet_dim=512, common_dim=512):
         super().__init__()

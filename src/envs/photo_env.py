@@ -109,9 +109,20 @@ class PhotoEnhancementEnv(gym.Env):
                     shape = (self.batch_size, self.num_parameters),
                     dtype = torch.float32
                 )
-            if self.use_txt_features=="one_hot":
+            elif self.use_txt_features=="one_hot":
                 self.observation_space= Observation_Space(
-                        shape = (self.batch_size, self.features_size+16),
+                        shape = (self.batch_size, self.features_size+16), #16 is the number of txt features
+                        dtype = torch.float32)
+                                                          
+                self.action_space = Action_Space(
+                    high = 1,
+                    low = -1,
+                    shape = (self.batch_size, self.num_parameters),
+                    dtype = torch.float32
+                )
+            elif self.use_txt_features=="histogram":
+                self.observation_space= Observation_Space(
+                        shape = (self.batch_size, self.features_size+(64*3)), #64*3 is the number of histogram features
                         dtype = torch.float32)
                                                           
                 self.action_space = Action_Space(
@@ -218,6 +229,13 @@ class PhotoEnhancementEnv(gym.Env):
                         },
                         batch_size = [self.state['source_image'].shape[0]],
                     )
+        elif use_txt_features=="histogram":
+            batch_observation= TensorDict(
+                        {
+                            "batch_images":self.state['source_image'],
+                            "histogram":self.state['histogram'],
+                        },
+                        batch_size = [self.state['source_image'].shape[0]],)
         else:
             batch_observation = TensorDict(
                         {
@@ -257,6 +275,21 @@ class PhotoEnhancementEnv(gym.Env):
                 'enhanced_image':source_image/255.0,                     
                 'ts_features':txt_features,
                 'target_image':target_image/255.0,
+            }
+            self.iter_dataloader_count += 1
+            if self.preprocessor_agent_path!=None:
+                self.original_image = self.state['source_image']
+                self.done_threshold = self.compute_preprocessor_threshold(self.generate_batch_obs_dict(
+                    self.preprocessor_agent.env.use_txt_features if hasattr(self.preprocessor_agent.env,'use_txt_features') else False))
+            batch_observation= self.generate_batch_obs_dict()
+        elif self.use_txt_features=="histogram":
+            source_image, source_histogram, target_image, target_histogram= next(self.iter_dataloader) 
+            self.state = {
+                'source_image':source_image/255.0,  
+                'enhanced_image':source_image/255.0,                     
+                'histogram':source_histogram,
+                'target_image':target_image/255.0,
+                'target_histogram':target_histogram,
             }
             self.iter_dataloader_count += 1
             if self.preprocessor_agent_path!=None:
