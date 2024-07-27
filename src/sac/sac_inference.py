@@ -1,4 +1,4 @@
-from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone, SemanticBackboneOC
+from .sac_networks import Actor, SoftQNetwork, ResNETBackbone, SemanticBackbone, SemanticBackboneOC,  ResNETHistBackbone
 import torch
 from .utils import *
 
@@ -11,6 +11,8 @@ class InferenceAgent:
             self.backbone = SemanticBackbone().to(self.device)
         elif inference_env.use_txt_features=='one_hot':
             self.backbone = SemanticBackboneOC().to(self.device)
+        elif inference_env.use_txt_features=='histogram':
+            self.backbone =  ResNETHistBackbone().to(self.device)
         else:
             self.backbone = ResNETBackbone().to(self.device)
         self.env = inference_env
