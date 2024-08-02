@@ -1,2 +1,3 @@
 notebooks/. linguist-generated=true
 *.ipynb linguist-documentation
+notebooks/*.ipynb linguist-generated=true
