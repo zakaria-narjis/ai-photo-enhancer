@@ -1,1 +1,2 @@
 notebooks/. linguist-generated=true
+*.ipynb linguist-documentation
