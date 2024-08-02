@@ -13,7 +13,7 @@ class FiveKDataset(Dataset):
                  pre_load_images=True):
         current_dir = os.getcwd()
         dataset_dir = os.path.join(current_dir,"dataset")
-        self.IMGS_PATH = os.path.join(dataset_dir, f"FiveK/{mode}")
+        self.IMGS_PATH = os.path.join(dataset_dir, f"FiveK_dupplicated/{mode}")
         self.FEATURES_PATH = os.path.join(dataset_dir, "processed_categories_2.txt")
         self.resize = resize
         self.image_size = image_size
@@ -36,7 +36,11 @@ class FiveKDataset(Dataset):
         self.img_files = [f for f in os.listdir(os.path.join(self.IMGS_PATH, 'input'))]
         
         # Prepare MultiLabelBinarizer
-        all_features = [self.features[img] for img in self.img_files]
+        all_features = []
+        for img in self.img_files:
+            original_img = img.replace("_duplicated","")
+            all_features.append(self.features[original_img])
+     
         self.mlb = MultiLabelBinarizer()
         self.mlb.fit(all_features)
         

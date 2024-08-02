@@ -166,6 +166,8 @@ cython_debug/
 dataset/expertC
 dataset/original
 dataset/FiveK
+dataset/FiveK_dupplicated
+
 .VSCodeCounter
 experiments/runs/SemanticBackbone__6_sliders_244_64__2024-07-21_18-18-08/events.out.tfevents.1721585924.38bb873b887c.15682.0
 experiments/runs/ResNet_6s__ResNet_224_aug__2024-07-22_14-52-08/events.out.tfevents.1721659964.38bb873b887c.22247.0
