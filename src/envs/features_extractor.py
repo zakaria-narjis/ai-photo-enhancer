@@ -2,28 +2,35 @@ import torch
 from torchvision import transforms
 from torchvision import models
 
-ENCODING_DEVICE = 'cuda'
+ENCODING_DEVICE = "cuda"
+
 
 class Extractor:
     """
-        Features extractor boilerplate
+    Features extractor boilerplate
     """
-    
-    
-    def __init__(self,):
-        self.name=''
-        self.input_shape=None
-        self.output_shape=None
+
+    def __init__(
+        self,
+    ):
+        self.name = ""
+        self.input_shape = None
+        self.output_shape = None
         self.model = None
         self.preprocess = None
         self.device = None
+
+
 class ResnetEncoder(Extractor):
     def __init__(self):
         super().__init__()
         pass
+
     """
         Legacy code
     """
+
+
 # class ResnetEncoder(Extractor):
 #     def __init__(self,):
 #         super().__init__()
@@ -34,9 +41,8 @@ class ResnetEncoder(Extractor):
 #         self.preprocess = transforms.Compose([
 #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 # ])
-        
 
-        
+
 #     def encode(self,images:torch.Tensor)->torch.Tensor:
 #         """
 #             args:

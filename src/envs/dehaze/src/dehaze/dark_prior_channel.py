@@ -6,8 +6,11 @@ import numpy as np
 
 
 def statistic(t):
-    print("Shape:{}, Dtype: {}, Min: {}, Max: {}, Avg: {}".format(
-        t.shape, t.dtype, t.min(), t.max(), t.sum() / t.size))
+    print(
+        "Shape:{}, Dtype: {}, Min: {}, Max: {}, Avg: {}".format(
+            t.shape, t.dtype, t.min(), t.max(), t.sum() / t.size
+        )
+    )
 
 
 class DarkPriorChannelDehaze(object):
@@ -30,13 +33,15 @@ class DarkPriorChannelDehaze(object):
             estimation using guided filter
     """
 
-    def __init__(self,
-                 wsize=15,
-                 radius=40,
-                 t_min=0.1,
-                 ratio=0.001,
-                 omega=0.95,
-                 refine=True):
+    def __init__(
+        self,
+        wsize=15,
+        radius=40,
+        t_min=0.1,
+        ratio=0.001,
+        omega=0.95,
+        refine=True,
+    ):
         self.wsize = wsize
         self.radius = radius
         self.t_min = t_min
@@ -55,13 +60,21 @@ class DarkPriorChannelDehaze(object):
         """
         h, w = img.shape[:2]
         img = np.min(img, axis=2, keepdims=False)
-        padded = np.pad(img, ((self.wsize // 2, self.wsize // 2),
-                              (self.wsize // 2, self.wsize // 2)), 'edge')
+        padded = np.pad(
+            img,
+            (
+                (self.wsize // 2, self.wsize // 2),
+                (self.wsize // 2, self.wsize // 2),
+            ),
+            "edge",
+        )
 
         img_distract = np.zeros([*img.shape, self.wsize**2])
         for i in range(self.wsize):
             for j in range(self.wsize):
-                img_distract[..., i * self.wsize + j] = padded[i:i + h, j:j + w]
+                img_distract[..., i * self.wsize + j] = padded[
+                    i : i + h, j : j + w
+                ]
 
         return np.min(img_distract, axis=2, keepdims=True)
 
@@ -77,7 +90,7 @@ class DarkPriorChannelDehaze(object):
         """
         img = img.reshape([-1, 3])
         img_dark = img_dark.flatten()
-        top_k_index = np.argsort(img_dark)[-int(img_dark.size * self.ratio):]
+        top_k_index = np.argsort(img_dark)[-int(img_dark.size * self.ratio) :]
         return np.max(np.take(img, top_k_index, axis=0), axis=0)
 
     def transmission(self, img, at, img_dark, omega=0.95):
@@ -100,7 +113,8 @@ class DarkPriorChannelDehaze(object):
         NOTE: not implemented
         """
         raise NotImplementedError(
-            "soft_mat is deprecated, guided_filter instead")
+            "soft_mat is deprecated, guided_filter instead"
+        )
 
     def guided_filter(self, img, img_guide, epsilon=0.0001):
         """Smooth filter which keep edge property.
@@ -113,13 +127,16 @@ class DarkPriorChannelDehaze(object):
         Return:
             A smoothed version of img, `np.ndarray` of size [h, w, 1]
         """
-        g_mean = cv2.boxFilter(img_guide, cv2.CV_32F, (self.radius,
-                                                       self.radius))
-        g_corr = cv2.boxFilter(img_guide * img_guide, cv2.CV_32F, (self.radius,
-                                                                   self.radius))
+        g_mean = cv2.boxFilter(
+            img_guide, cv2.CV_32F, (self.radius, self.radius)
+        )
+        g_corr = cv2.boxFilter(
+            img_guide * img_guide, cv2.CV_32F, (self.radius, self.radius)
+        )
         i_mean = cv2.boxFilter(img, cv2.CV_32F, (self.radius, self.radius))
-        gi_corr = cv2.boxFilter(img * img_guide, cv2.CV_32F, (self.radius,
-                                                              self.radius))
+        gi_corr = cv2.boxFilter(
+            img * img_guide, cv2.CV_32F, (self.radius, self.radius)
+        )
 
         g_var = g_corr - g_mean * g_mean
         gi_cov = gi_corr - i_mean * g_mean
@@ -145,8 +162,9 @@ class DarkPriorChannelDehaze(object):
 
         if self.refine:
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            t = self.guided_filter(t.reshape(img_gray.shape),
-                                   img_gray).reshape(t.shape)
+            t = self.guided_filter(
+                t.reshape(img_gray.shape), img_gray
+            ).reshape(t.shape)
 
         t = np.maximum(self.t_min, t)
         return self.reconstruct(img, at, t)
