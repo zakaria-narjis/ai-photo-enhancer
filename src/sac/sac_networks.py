@@ -4,8 +4,8 @@ import torch.nn.functional as F
 from torchvision import models
 from torchvision import transforms
 import torch.nn.init as init
-LOG_STD_MAX = 3
-LOG_STD_MIN = -5
+LOG_STD_MAX = 2
+LOG_STD_MIN = -20
 
 
 class ResNETBackbone(nn.Module):
