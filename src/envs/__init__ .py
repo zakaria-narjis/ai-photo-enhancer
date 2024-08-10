@@ -5,3 +5,4 @@ from src.envs.photo_env import Observation_Space  # noqa F401
 from src.envs.photo_env import Action_Space  # noqa F401
 from src.envs.photo_env import PhotoEnhancementEnvTest  # noqa F401
 from src.envs.env_dataloader import create_dataloaders  # noqa F401
+from src.envs.dehaze.src import dehaze  # noqa F401

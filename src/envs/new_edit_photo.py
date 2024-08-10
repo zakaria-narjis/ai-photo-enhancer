@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 import cv2
-from dehaze.src import dehaze
+from src.envs.dehaze.src import dehaze
 
 # def numpy_sigmoid(x):
 #     return 1/(1+np.exp(-x))
