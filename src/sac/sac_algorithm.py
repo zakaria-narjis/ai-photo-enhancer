@@ -33,7 +33,7 @@ class SAC:
             self.backbone = SemanticBackboneOC().to(self.device)
         elif self.env.use_txt_features == "histogram":
             self.backbone = ResNETHistBackbone().to(self.device)
-        elif self.env.use_txt_features == False:
+        elif self.env.use_txt_features is False:
             self.backbone = ResNETBackbone().to(self.device)
 
         self.actor = Actor(env, self.backbone).to(self.device)

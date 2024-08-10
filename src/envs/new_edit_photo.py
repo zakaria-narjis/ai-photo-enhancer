@@ -2,11 +2,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 import cv2
-
-try:
-    from .dehaze.src import dehaze
-except:
-    from dehaze.src import dehaze
+from dehaze.src import dehaze
 
 # def numpy_sigmoid(x):
 #     return 1/(1+np.exp(-x))
@@ -714,13 +710,10 @@ class PhotoEditor:
                 if edit_func.num_parameters == 0:
                     editted_images = edit_func(editted_images)
                 else:
+                    start = num_parameters
+                    end = num_parameters + edit_func.num_parameters
                     editted_images = edit_func(
-                        editted_images,
-                        parameters[
-                            :,
-                            num_parameters : num_parameters
-                            + edit_func.num_parameters,
-                        ],
+                        editted_images, parameters[:, start:end]
                     )
                 num_parameters = num_parameters + edit_func.num_parameters
 
@@ -730,13 +723,10 @@ class PhotoEditor:
                     editted_images = edit_func(editted_images)
                 else:
                     if edit_func.slider_names[0] in self.sliders:
+                        start = num_parameters
+                        end = num_parameters + edit_func.num_parameters
                         editted_images = edit_func(
-                            editted_images,
-                            parameters[
-                                :,
-                                num_parameters : num_parameters
-                                + edit_func.num_parameters,
-                            ],
+                            editted_images, parameters[:, start:end]
                         )
                         num_parameters = (
                             num_parameters + edit_func.num_parameters

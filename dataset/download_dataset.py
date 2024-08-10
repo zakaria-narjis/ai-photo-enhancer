@@ -27,7 +27,7 @@ def download_and_prepare_dataset():
 
     print("Dataset downloaded, unzipped, and cleaned up successfully.")
 
-    # If the dataset is inside a subdirectory, move it to the main dataset directory
+    # If the dataset is inside a subdirectory, move it to the main dataset directory  # noqa: E501
     subdirs = [
         d
         for d in os.listdir(dataset_dir)

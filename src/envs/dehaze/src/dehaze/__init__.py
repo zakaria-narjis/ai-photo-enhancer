@@ -1,1 +1,1 @@
-from .dark_prior_channel import DarkPriorChannelDehaze
+from .dark_prior_channel import DarkPriorChannelDehaze  # noqa F401

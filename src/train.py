@@ -4,14 +4,15 @@ import random
 import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
-import time
 from envs.photo_env import PhotoEnhancementEnv
 from envs.photo_env import PhotoEnhancementEnvTest
 from sac.sac_algorithm import SAC
-import multiprocessing as mp
 import argparse
 import logging
-from sac.utils import *
+from sac.utils import (
+    save_actor_head,
+    save_critic_head,
+)
 from tqdm.auto import tqdm
 
 from datetime import datetime
@@ -162,7 +163,7 @@ def main():
     try:
         agent = SAC(env, sac_config, writer)
 
-        if env_config.preprocessor_agent_path != None:  # Double agent mode
+        if env_config.preprocessor_agent_path is not None:  # Double agent mode
             test_env.preprocessor_agent = (
                 env.preprocessor_agent
             )  # share the same preprocessor agent
@@ -186,7 +187,7 @@ def main():
                 agent.global_step += 1
                 rewards, batch_dones = agent.train()
                 envs_mean_rewards.append(rewards.mean().item())
-                if (batch_dones == True).any():
+                if (batch_dones is True).any():
                     num_env_done = int(batch_dones.sum().item())
                     agent.writer.add_scalar(
                         "charts/num_env_done", num_env_done, agent.global_step
@@ -200,8 +201,8 @@ def main():
                     )
 
                 if (
-                    batch_dones == True
-                ).all() == True or episode_count == sac_config.max_episode_timesteps:
+                    batch_dones is True
+                ).all() is True or episode_count == sac_config.max_episode_timesteps:
                     episode_count = 0
                     break
             if (
@@ -225,7 +226,7 @@ def main():
                         agent.global_step,
                     )
 
-                    if env_config.preprocessor_agent_path != None:
+                    if env_config.preprocessor_agent_path is not None:
                         agent.writer.add_images(
                             "test_images",
                             test_env.original_image[:n_images],
@@ -279,7 +280,7 @@ def main():
             save_critic_head(agent.qf1, run_dir + "/models/qf1_head.pth")
             save_critic_head(agent.qf2, run_dir + "/models/qf2_head.pth")
         writer.close()
-    except Exception as e:
+    except Exception:
 
         logger.exception("An error occurred during training")
         if agent.global_step > 1000:

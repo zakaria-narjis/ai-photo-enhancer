@@ -72,10 +72,9 @@ class DarkPriorChannelDehaze(object):
         img_distract = np.zeros([*img.shape, self.wsize**2])
         for i in range(self.wsize):
             for j in range(self.wsize):
-                img_distract[..., i * self.wsize + j] = padded[
-                    i : i + h, j : j + w
-                ]
-
+                img_distract[..., i * self.wsize + j] = padded[  # noqa E203
+                    i : i + h, j : j + w  # noqa E203
+                ]  # noqa E203
         return np.min(img_distract, axis=2, keepdims=True)
 
     def atmosphere(self, img, img_dark):
@@ -90,7 +89,9 @@ class DarkPriorChannelDehaze(object):
         """
         img = img.reshape([-1, 3])
         img_dark = img_dark.flatten()
-        top_k_index = np.argsort(img_dark)[-int(img_dark.size * self.ratio) :]
+        top_k_index = np.argsort(img_dark)[
+            -int(img_dark.size * self.ratio) :  # noqa E203
+        ]  # noqa E203
         return np.max(np.take(img, top_k_index, axis=0), axis=0)
 
     def transmission(self, img, at, img_dark, omega=0.95):

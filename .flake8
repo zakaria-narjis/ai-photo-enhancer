@@ -1,0 +1,8 @@
+[flake8]
+per-file-ignores =
+    # line too long
+    ./src/envs/new_edit_photo.py: E501,
+    ./src/envs/photo_env.py: E501,
+    ./src/sac/sac_algorithm.py: E501,
+    ./src/train.py: E501,
+    ./src/test.py: E501,

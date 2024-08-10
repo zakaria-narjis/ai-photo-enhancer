@@ -1,6 +1,4 @@
 from envs.env_dataloader import create_dataloaders
-import torchvision.transforms as transforms
-from torchvision.transforms import v2
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from envs.new_edit_photo import PhotoEditor
 from sac.sac_inference import InferenceAgent
@@ -24,10 +22,10 @@ class Config(object):
 
 def load_preprocessor_agent(preprocessor_agent_path, device):
     current_dir = Path(__file__).parent.absolute()
-    with open(
-        os.path.join(preprocessor_agent_path, "configs/sac_config.yaml")
-    ) as f:
-        sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
+    # with open(
+    #     os.path.join(preprocessor_agent_path, "configs/sac_config.yaml")
+    # ) as f:
+    #     sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
     with open(
         os.path.join(preprocessor_agent_path, "configs/env_config.yaml")
     ) as f:
@@ -37,7 +35,7 @@ def load_preprocessor_agent(preprocessor_agent_path, device):
     ) as f:
         inf_config_dict = yaml.load(f, Loader=yaml.FullLoader)
     inference_config = Config(inf_config_dict)
-    sac_config = Config(sac_config_dict)
+    # sac_config = Config(sac_config_dict)
     env_config = Config(env_config_dict)
     inference_env = PhotoEnhancementEnvTest(
         batch_size=env_config.train_batch_size,
@@ -131,7 +129,7 @@ def main():
     inference_config = Config(inf_config_dict)
     sac_config = Config(sac_config_dict)
     env_config = Config(env_config_dict)
-    if hasattr(env_config, "preprocessor_agent_path") == False:
+    if hasattr(env_config, "preprocessor_agent_path") is False:
         env_config.preprocessor_agent_path = None
     SEED = sac_config.seed
 
@@ -219,7 +217,7 @@ def main():
     PSNRS = []
     SSIM = []
 
-    logger.info(f"Testing ...")
+    logger.info("Testing ...")
     logger.info(f"Using device {args.device}")
     # batch_64_images = next(iter(test_64))[0]/255.0
     inference_env.dataloader = test_resized
@@ -243,9 +241,9 @@ def main():
         preprocessed_images, deterministic=args.deterministic
     )
 
-    logger.info(f"Done")
+    logger.info("Done")
     parameter_counter = 0
-    logger.info(f"Enhancing images and computing metrics")
+    logger.info("Enhancing images and computing metrics")
 
     plot_data = []
     random_indices = random.sample(range(len(test_512)), args.plt_samples)
@@ -294,7 +292,7 @@ def main():
         3, args.plt_samples, figsize=(15, args.plt_samples * 5)
     )
     # plt.subplots_adjust(hspace=0.5)
-    logger.info(f"Plotting samples")
+    logger.info("Plotting samples")
     for index in range(args.plt_samples):
         plot_data[index][0]
         axes[0][index].imshow(plot_data[index][0][0].permute(1, 2, 0))

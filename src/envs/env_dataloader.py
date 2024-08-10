@@ -1,9 +1,5 @@
 from .image_dataset import FiveKDataset
-from torch.utils.data import Dataset
-import torch
 from torch.utils.data import DataLoader
-from tqdm.notebook import tqdm
-from .features_extractor import ResnetEncoder
 
 
 class PhotoEnhancement:

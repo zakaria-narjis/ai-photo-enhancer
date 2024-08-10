@@ -8,11 +8,7 @@ from tensordict import TensorDict
 import os
 import yaml
 from pathlib import Path
-
-try:
-    from src.sac.sac_inference import InferenceAgent
-except:
-    from sac.sac_inference import InferenceAgent
+from src.sac.sac_inference import InferenceAgent
 
 
 class Observation_Space:
@@ -83,16 +79,6 @@ class PhotoEnhancementEnv(gym.Env):
         logger=None,
     ):
         super().__init__()
-        """
-                Args:
-                    batch_size(int): number of sub environements (batch of images) to be enhanced
-                    logger(logger) : logger used
-                    imsize(int) : resized image size used for training and
-                    training_mode(bool): train mode
-                    done_threshold (bool): minimum threshold to considered an image enhanced 
-                    dataloader (torch.utils.data.Dataloder): images data loader
-                    use_txt_features (bool): whether to encode the images or not
-            """
         self.logger = logger or logging.getLogger(__name__)
         self.imsize = imsize
         self.batch_size = batch_size
@@ -100,7 +86,7 @@ class PhotoEnhancementEnv(gym.Env):
         self.use_txt_features = use_txt_features
         self.preprocessor_agent_path = preprocessor_agent_path
         self.pre_encoding_device = pre_encoding_device
-        if training_mode != None:
+        if training_mode is not None:
             self.dataloader = create_dataloaders(
                 batch_size=batch_size,
                 image_size=imsize,
@@ -188,7 +174,7 @@ class PhotoEnhancementEnv(gym.Env):
         self.state = None  # Batch of images (B,3,H,W) that correspond to the agent state each image can be seen as a sub state in a sub env
         self.sub_env_running = None
 
-        if self.preprocessor_agent_path != None:
+        if self.preprocessor_agent_path is not None:
             self.load_preprocessor_agent()
             self.original_image = None
 
@@ -196,12 +182,12 @@ class PhotoEnhancementEnv(gym.Env):
         self,
     ):
         current_dir = Path(__file__).parent.absolute()
-        with open(
-            os.path.join(
-                self.preprocessor_agent_path, "configs/sac_config.yaml"
-            )
-        ) as f:
-            sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
+        # with open(
+        #     os.path.join(
+        #         self.preprocessor_agent_path, "configs/sac_config.yaml"
+        #     )
+        # ) as f:
+        #     sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
         with open(
             os.path.join(
                 self.preprocessor_agent_path, "configs/env_config.yaml"
@@ -213,7 +199,7 @@ class PhotoEnhancementEnv(gym.Env):
         ) as f:
             inf_config_dict = yaml.load(f, Loader=yaml.FullLoader)
         inference_config = Config(inf_config_dict)
-        sac_config = Config(sac_config_dict)
+        # sac_config = Config(sac_config_dict)
         env_config = Config(env_config_dict)
         inference_env = PhotoEnhancementEnvTest(
             batch_size=env_config.train_batch_size,
@@ -286,7 +272,7 @@ class PhotoEnhancementEnv(gym.Env):
         self.iter_dataloader = iter(self.dataloader)
 
     def generate_batch_obs_dict(self, use_txt_features=None):
-        if use_txt_features == None:  # use the current env use_txt_features
+        if use_txt_features is None:  # use the current env use_txt_features
             use_txt_features = self.use_txt_features
         if use_txt_features == "embedded":
             batch_observation = TensorDict(
@@ -345,7 +331,7 @@ class PhotoEnhancementEnv(gym.Env):
             }
             self.iter_dataloader_count += 1
 
-            if self.preprocessor_agent_path != None:
+            if self.preprocessor_agent_path is not None:
                 self.original_image = self.state["source_image"]
                 self.done_threshold = self.compute_preprocessor_threshold(
                     self.generate_batch_obs_dict(
@@ -369,7 +355,7 @@ class PhotoEnhancementEnv(gym.Env):
                 "target_image": target_image / 255.0,
             }
             self.iter_dataloader_count += 1
-            if self.preprocessor_agent_path != None:
+            if self.preprocessor_agent_path is not None:
                 self.original_image = self.state["source_image"]
                 self.done_threshold = self.compute_preprocessor_threshold(
                     self.generate_batch_obs_dict(
@@ -393,7 +379,7 @@ class PhotoEnhancementEnv(gym.Env):
                 "target_histogram": target_histogram,
             }
             self.iter_dataloader_count += 1
-            if self.preprocessor_agent_path != None:
+            if self.preprocessor_agent_path is not None:
                 self.original_image = self.state["source_image"]
                 self.done_threshold = self.compute_preprocessor_threshold(
                     self.generate_batch_obs_dict(
@@ -413,7 +399,7 @@ class PhotoEnhancementEnv(gym.Env):
                 "source_image": source_image / 255.0,
                 "target_image": target_image / 255.0,
             }
-            if self.preprocessor_agent_path != None:
+            if self.preprocessor_agent_path is not None:
                 self.original_image = self.state["source_image"]
                 self.done_threshold = self.compute_preprocessor_threshold(
                     self.generate_batch_obs_dict(

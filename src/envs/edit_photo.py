@@ -1,12 +1,7 @@
 import cv2
 import numpy as np
 import math
-import sys
-
-try:
-    from .dehaze.src import dehaze
-except:
-    from dehaze.src import dehaze
+from dehaze.src import dehaze
 
 
 def nothing(x):
@@ -466,12 +461,13 @@ class PhotoEditor:
         output_list = [photo]
         num_parameters = 0
         for edit_func in self.edit_funcs:
-            output_list = edit_func(
-                output_list,
-                parameters[
-                    num_parameters : num_parameters + edit_func.num_parameters
-                ],
-            )
+            output_list = edit_func(  # noqa E203
+                output_list,  # noqa E203
+                parameters[  # noqa E203
+                    num_parameters : num_parameters  # noqa E203
+                    + edit_func.num_parameters  # noqa E203
+                ],  # noqa E203
+            )  # noqa E203
             num_parameters = num_parameters + edit_func.num_parameters
 
         return output_list[0]

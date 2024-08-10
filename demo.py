@@ -11,10 +11,8 @@ from src.envs.photo_env import PhotoEnhancementEnvTest
 from tensordict import TensorDict
 import torchvision.transforms.v2.functional as F
 from streamlit import cache_resource
-import pandas as pd
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource
-from bokeh.palettes import Spectral3
 
 # Set page config to wide mode
 st.set_page_config(layout="wide")
@@ -57,10 +55,10 @@ class Config(object):
 
 @cache_resource
 def load_preprocessor_agent(preprocessor_agent_path, device):
-    with open(
-        os.path.join(preprocessor_agent_path, "configs/sac_config.yaml")
-    ) as f:
-        sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
+    # with open(
+    #     os.path.join(preprocessor_agent_path, "configs/sac_config.yaml")
+    # ) as f:
+    #     sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
     with open(
         os.path.join(preprocessor_agent_path, "configs/env_config.yaml")
     ) as f:
@@ -69,7 +67,7 @@ def load_preprocessor_agent(preprocessor_agent_path, device):
         inf_config_dict = yaml.load(f, Loader=yaml.FullLoader)
 
     inference_config = Config(inf_config_dict)
-    sac_config = Config(sac_config_dict)
+    # sac_config = Config(sac_config_dict)
     env_config = Config(env_config_dict)
 
     inference_env = PhotoEnhancementEnvTest(
@@ -195,7 +193,7 @@ def reset_sliders():
     for name in SLIDERS:
         st.session_state[f"slider_{name}"] = 0
         st.session_state.params[name] = 0
-    # st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params)
+    # st.session_state.enhanced_image = enhance_image(image_tensor, st.session_state.params) # noqa: E501
     st.session_state.enhanced_image = st.session_state.original_image
 
 
@@ -205,7 +203,7 @@ def reset_on_upload():
 
 
 def create_smooth_histogram(image):
-    # Compute histograms for each channel
+    # Compute histograms for each channel # noqa: E501
     bins = np.linspace(0, 255, 256)
     hist_r, _ = np.histogram(image[..., 0], bins=bins)
     hist_g, _ = np.histogram(image[..., 1], bins=bins)
@@ -402,7 +400,7 @@ if uploaded_file is not None:
                 )
             else:
                 st.warning(
-                    "Enhanced image is not available. Try adjusting the sliders or clicking 'Auto Enhance'."
+                    "Enhanced image is not available. Try adjusting the sliders or clicking 'Auto Enhance'."  # noqa: E501
                 )
         else:  # Comparison view
             if st.session_state.enhanced_image is not None:
@@ -422,7 +420,7 @@ if uploaded_file is not None:
                 )
             else:
                 st.warning(
-                    "Enhanced image is not available for comparison. Try adjusting the sliders or clicking 'Auto Enhance'."
+                    "Enhanced image is not available for comparison. Try adjusting the sliders or clicking 'Auto Enhance'."  # noqa: E501
                 )
 
     # Add custom CSS to make the image comparison component responsive

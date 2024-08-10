@@ -7,7 +7,7 @@ from .sac_networks import (
     ResNETHistBackbone,
 )
 import torch
-from .utils import *
+from .utils import load_actor_head, load_critic_head
 
 
 class InferenceAgent:
@@ -54,7 +54,7 @@ class InferenceAgent:
         self.qf2.eval().requires_grad_(False)
 
     def act(self, obs, deterministic=True, n_samples=None):
-        if n_samples == None:
+        if n_samples is None:
             n_samples = self.args.n_actions_samples
         best_actions = None
         with torch.inference_mode():

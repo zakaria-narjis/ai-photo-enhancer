@@ -323,7 +323,7 @@ class FiveKDataset(Dataset):
                 return source, source_hist, target, target_hist
         else:
             raise ValueError(
-                "Invalid value for use_txt_features. Must be False, 'one_hot', 'categorical', 'embedded', or 'histogram'."
+                "Invalid value for use_txt_features. Must be False, 'one_hot', 'categorical', 'embedded', or 'histogram'."  # noqa: E501
             )
 
     def collate_fn(self, batch):
