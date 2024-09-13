@@ -715,7 +715,7 @@ class PhotoEditor:
                     editted_images = edit_func(
                         editted_images, parameters[:, start:end]
                     )
-                num_parameters = num_parameters + edit_func.num_parameters
+                num_parameters += edit_func.num_parameters
 
             else:
 
@@ -728,9 +728,7 @@ class PhotoEditor:
                         editted_images = edit_func(
                             editted_images, parameters[:, start:end]
                         )
-                        num_parameters = (
-                            num_parameters + edit_func.num_parameters
-                        )
+                        num_parameters += edit_func.num_parameters
 
         editted_images = editted_images.type(torch.float32)
 
