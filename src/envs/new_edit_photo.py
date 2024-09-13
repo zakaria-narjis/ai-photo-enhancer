@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 import cv2
-from src.envs.dehaze.src import dehaze
+# from src.envs.dehaze.src import dehaze
 
 # def numpy_sigmoid(x):
 #     return 1/(1+np.exp(-x))
@@ -74,29 +74,30 @@ class AdjustDehaze:
         return:
             output: torch.Tensor #  B H W C
         """
-        assert images.dim() == 4
-        batch_size = parameters.shape[0]
-        output = []
-        for image_index in range(batch_size):
-            image = images[image_index].numpy()
-            scale = max((image.shape[:2])) / 512.0
-            omega = float(parameters[image_index])
-            editted = (
-                dehaze.DarkPriorChannelDehaze(
-                    wsize=int(15 * scale),
-                    radius=int(80 * scale),
-                    omega=omega,
-                    t_min=0.25,
-                    refine=True,
-                )(image * 255.0)
-                / 255.0
-            )
-            editted = torch.tensor(editted)
-            editted = F.relu(editted)
-            editted = 1 - F.relu(1 - editted)
-            output.append(editted)
-        output = torch.stack(output)
-        return output
+        # assert images.dim() == 4
+        # batch_size = parameters.shape[0]
+        # output = []
+        # for image_index in range(batch_size):
+        #     image = images[image_index].numpy()
+        #     scale = max((image.shape[:2])) / 512.0
+        #     omega = float(parameters[image_index])
+        #     editted = (
+        #         dehaze.DarkPriorChannelDehaze(
+        #             wsize=int(15 * scale),
+        #             radius=int(80 * scale),
+        #             omega=omega,
+        #             t_min=0.25,
+        #             refine=True,
+        #         )(image * 255.0)
+        #         / 255.0
+        #     )
+        #     editted = torch.tensor(editted)
+        #     editted = F.relu(editted)
+        #     editted = 1 - F.relu(1 - editted)
+        #     output.append(editted)
+        # output = torch.stack(output)
+        # return output
+        return 0
 
 
 class AdjustClarity:
