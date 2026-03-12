@@ -1,18 +1,20 @@
-import gymnasium as gym
 import logging
-from .new_edit_photo import PhotoEditor
-from .env_dataloader import create_dataloaders
-import torch
-from typing import Sequence
-from tensordict import TensorDict
 import os
-import yaml
+from collections.abc import Sequence
 from pathlib import Path
+
+import gymnasium as gym
+import torch
+import yaml
+from tensordict import TensorDict
+
 from src.sac.sac_inference import InferenceAgent
+
+from .env_dataloader import create_dataloaders
+from .new_edit_photo import PhotoEditor
 
 
 class Observation_Space:
-
     def __init__(
         self,
         shape: Sequence[int] | None = None,
@@ -29,7 +31,6 @@ class Observation_Space:
 
 
 class Action_Space:
-
     def __init__(
         self,
         high: float,
@@ -51,7 +52,7 @@ class Action_Space:
         return torch.rand(batch_size, self._shape[1])
 
 
-class Config(object):
+class Config:
     def __init__(self, dictionary):
         self.__dict__.update(dictionary)
 
@@ -101,9 +102,7 @@ class PhotoEnhancementEnv(gym.Env):
             self.iter_dataloader_count = (
                 0  # counts number of batch of samples seen by the agent
             )
-            self.iter_dataloader = iter(
-                self.dataloader
-            )  # iterator over the dataloader
+            self.iter_dataloader = iter(self.dataloader)  # iterator over the dataloader
         self.edit_sliders = edit_sliders
         self.photo_editor = PhotoEditor(sliders=edit_sliders)
         self.num_parameters = self.photo_editor.num_parameters
@@ -189,14 +188,10 @@ class PhotoEnhancementEnv(gym.Env):
         # ) as f:
         #     sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
         with open(
-            os.path.join(
-                self.preprocessor_agent_path, "configs/env_config.yaml"
-            )
+            os.path.join(self.preprocessor_agent_path, "configs/env_config.yaml")
         ) as f:
             env_config_dict = yaml.load(f, Loader=yaml.FullLoader)
-        with open(
-            os.path.join(current_dir, "../configs/inference_config.yaml")
-        ) as f:
+        with open(os.path.join(current_dir, "../configs/inference_config.yaml")) as f:
             inf_config_dict = yaml.load(f, Loader=yaml.FullLoader)
         inference_config = Config(inf_config_dict)
         # sac_config = Config(sac_config_dict)
@@ -218,33 +213,21 @@ class PhotoEnhancementEnv(gym.Env):
         )  # useless just to get the action space size for the Networks and whether to use txt features or not
         self.preprocessor_photo_editor = PhotoEditor(env_config.sliders_to_use)
         inference_config.device = self.pre_encoding_device
-        self.preprocessor_agent = InferenceAgent(
-            inference_env, inference_config
-        )
+        self.preprocessor_agent = InferenceAgent(inference_env, inference_config)
         self.preprocessor_agent.device = self.pre_encoding_device
         os.path.join(self.preprocessor_agent_path, "models", "backbone.pth")
         self.preprocessor_agent.load_backbone(
-            os.path.join(
-                self.preprocessor_agent_path, "models", "backbone.pth"
-            )
+            os.path.join(self.preprocessor_agent_path, "models", "backbone.pth")
         )
         self.preprocessor_agent.load_actor_weights(
-            os.path.join(
-                self.preprocessor_agent_path, "models", "actor_head.pth"
-            )
+            os.path.join(self.preprocessor_agent_path, "models", "actor_head.pth")
         )
         self.preprocessor_agent.load_critics_weights(
-            os.path.join(
-                self.preprocessor_agent_path, "models", "qf1_head.pth"
-            ),
-            os.path.join(
-                self.preprocessor_agent_path, "models", "qf2_head.pth"
-            ),
+            os.path.join(self.preprocessor_agent_path, "models", "qf1_head.pth"),
+            os.path.join(self.preprocessor_agent_path, "models", "qf2_head.pth"),
         )
 
-    def compute_preprocessor_threshold(
-        self, observation, improvement_threshold=2
-    ):
+    def compute_preprocessor_threshold(self, observation, improvement_threshold=2):
         with torch.no_grad():
             pre_batch_actions = self.preprocessor_agent.act(
                 observation, deterministic=False, n_samples=0
@@ -336,18 +319,14 @@ class PhotoEnhancementEnv(gym.Env):
                 self.done_threshold = self.compute_preprocessor_threshold(
                     self.generate_batch_obs_dict(
                         self.preprocessor_agent.env.use_txt_features
-                        if hasattr(
-                            self.preprocessor_agent.env, "use_txt_features"
-                        )
+                        if hasattr(self.preprocessor_agent.env, "use_txt_features")
                         else False
                     )
                 )
             batch_observation = self.generate_batch_obs_dict()
 
         elif self.use_txt_features == "one_hot":
-            source_image, txt_features, target_image = next(
-                self.iter_dataloader
-            )
+            source_image, txt_features, target_image = next(self.iter_dataloader)
             self.state = {
                 "source_image": source_image / 255.0,
                 "enhanced_image": source_image / 255.0,
@@ -360,16 +339,14 @@ class PhotoEnhancementEnv(gym.Env):
                 self.done_threshold = self.compute_preprocessor_threshold(
                     self.generate_batch_obs_dict(
                         self.preprocessor_agent.env.use_txt_features
-                        if hasattr(
-                            self.preprocessor_agent.env, "use_txt_features"
-                        )
+                        if hasattr(self.preprocessor_agent.env, "use_txt_features")
                         else False
                     )
                 )
             batch_observation = self.generate_batch_obs_dict()
         elif self.use_txt_features == "histogram":
-            source_image, source_histogram, target_image, target_histogram = (
-                next(self.iter_dataloader)
+            source_image, source_histogram, target_image, target_histogram = next(
+                self.iter_dataloader
             )
             self.state = {
                 "source_image": source_image / 255.0,
@@ -384,9 +361,7 @@ class PhotoEnhancementEnv(gym.Env):
                 self.done_threshold = self.compute_preprocessor_threshold(
                     self.generate_batch_obs_dict(
                         self.preprocessor_agent.env.use_txt_features
-                        if hasattr(
-                            self.preprocessor_agent.env, "use_txt_features"
-                        )
+                        if hasattr(self.preprocessor_agent.env, "use_txt_features")
                         else False
                     )
                 )
@@ -404,9 +379,7 @@ class PhotoEnhancementEnv(gym.Env):
                 self.done_threshold = self.compute_preprocessor_threshold(
                     self.generate_batch_obs_dict(
                         self.preprocessor_agent.env.use_txt_features
-                        if hasattr(
-                            self.preprocessor_agent.env, "use_txt_features"
-                        )
+                        if hasattr(self.preprocessor_agent.env, "use_txt_features")
                         else False
                     )
                 )
@@ -420,9 +393,7 @@ class PhotoEnhancementEnv(gym.Env):
             target: batch of target images
         """
         assert enhanced_image.shape == target_image.shape
-        enhanced = torch.flatten(
-            enhanced_image.clone(), start_dim=1, end_dim=-1
-        )
+        enhanced = torch.flatten(enhanced_image.clone(), start_dim=1, end_dim=-1)
         target = torch.flatten(target_image.clone(), start_dim=1, end_dim=-1)
 
         rmse = enhanced - target
@@ -548,7 +519,7 @@ class PhotoEnhancementEnvTest(PhotoEnhancementEnv):
         preprocessor_agent_path=None,
         logger=None,
     ):
-        super(PhotoEnhancementEnvTest, self).__init__(
+        super().__init__(
             batch_size=batch_size,
             imsize=imsize,
             training_mode=training_mode,

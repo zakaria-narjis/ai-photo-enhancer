@@ -1,21 +1,23 @@
-from envs.env_dataloader import create_dataloaders
-from torchmetrics.image import StructuralSimilarityIndexMeasure
-from envs.new_edit_photo import PhotoEditor
-from sac.sac_inference import InferenceAgent
-import yaml
-from envs.photo_env import PhotoEnhancementEnvTest
-import numpy as np
 import argparse
 import logging
 import os
-from pathlib import Path
-from tqdm import tqdm
 import random
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
+import yaml
+from torchmetrics.image import StructuralSimilarityIndexMeasure
+from tqdm import tqdm
+
+from envs.env_dataloader import create_dataloaders
+from envs.new_edit_photo import PhotoEditor
+from envs.photo_env import PhotoEnhancementEnvTest
+from sac.sac_inference import InferenceAgent
 
 
-class Config(object):
+class Config:
     def __init__(self, dictionary):
         self.__dict__.update(dictionary)
 
@@ -26,13 +28,9 @@ def load_preprocessor_agent(preprocessor_agent_path, device):
     #     os.path.join(preprocessor_agent_path, "configs/sac_config.yaml")
     # ) as f:
     #     sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
-    with open(
-        os.path.join(preprocessor_agent_path, "configs/env_config.yaml")
-    ) as f:
+    with open(os.path.join(preprocessor_agent_path, "configs/env_config.yaml")) as f:
         env_config_dict = yaml.load(f, Loader=yaml.FullLoader)
-    with open(
-        os.path.join(current_dir, "../configs/inference_config.yaml")
-    ) as f:
+    with open(os.path.join(current_dir, "../configs/inference_config.yaml")) as f:
         inf_config_dict = yaml.load(f, Loader=yaml.FullLoader)
     inference_config = Config(inf_config_dict)
     # sac_config = Config(sac_config_dict)
@@ -101,9 +99,7 @@ def main():
     args = parser.parse_args()
     logger = logging.getLogger("test")
     args.device = (
-        torch.device(args.device)
-        if torch.cuda.is_available()
-        else torch.device("cpu")
+        torch.device(args.device) if torch.cuda.is_available() else torch.device("cpu")
     )
     # Configure logging to console
     console_handler = logging.StreamHandler()
@@ -117,13 +113,9 @@ def main():
 
     with open(os.path.join(current_dir, "configs/inference_config.yaml")) as f:
         inf_config_dict = yaml.load(f, Loader=yaml.FullLoader)
-    with open(
-        os.path.join(args.experiment_path, "configs/sac_config.yaml")
-    ) as f:
+    with open(os.path.join(args.experiment_path, "configs/sac_config.yaml")) as f:
         sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
-    with open(
-        os.path.join(args.experiment_path, "configs/env_config.yaml")
-    ) as f:
+    with open(os.path.join(args.experiment_path, "configs/env_config.yaml")) as f:
         env_config_dict = yaml.load(f, Loader=yaml.FullLoader)
 
     inference_config = Config(inf_config_dict)
@@ -157,9 +149,7 @@ def main():
             else False
         ),
         augment_data=(
-            env_config.augment_data
-            if hasattr(env_config, "augment_data")
-            else False
+            env_config.augment_data if hasattr(env_config, "augment_data") else False
         ),
         pre_encoding_device=args.device,
         pre_load_images=False,
@@ -180,10 +170,8 @@ def main():
     )
 
     if env_config.preprocessor_agent_path is not None:
-        preprocessor_agent, preprocessor_photo_editor = (
-            load_preprocessor_agent(
-                env_config.preprocessor_agent_path, args.device
-            )
+        preprocessor_agent, preprocessor_photo_editor = load_preprocessor_agent(
+            env_config.preprocessor_agent_path, args.device
         )
     ssim_metric = StructuralSimilarityIndexMeasure().to(args.device)
 
@@ -237,9 +225,7 @@ def main():
         preprocessed_images = preprocessed_images.permute(0, 3, 1, 2)
     else:
         preprocessed_images = batch_images
-    parameters = inf_agent.act(
-        preprocessed_images, deterministic=args.deterministic
-    )
+    parameters = inf_agent.act(preprocessed_images, deterministic=args.deterministic)
 
     logger.info("Done")
     parameter_counter = 0
@@ -288,9 +274,7 @@ def main():
 
     # Plotting
 
-    fig, axes = plt.subplots(
-        3, args.plt_samples, figsize=(15, args.plt_samples * 5)
-    )
+    fig, axes = plt.subplots(3, args.plt_samples, figsize=(15, args.plt_samples * 5))
     # plt.subplots_adjust(hspace=0.5)
     logger.info("Plotting samples")
     for index in range(args.plt_samples):
@@ -304,7 +288,7 @@ def main():
         axes[1][index].text(
             0.5,
             -0.04,
-            f"PSNR:{round(plot_data[index][3],2)}, SSIM:{round(plot_data[index][4],2)}",
+            f"PSNR:{round(plot_data[index][3], 2)}, SSIM:{round(plot_data[index][4], 2)}",
             size=10,
             ha="center",
             transform=axes[1][index].transAxes,
@@ -313,11 +297,9 @@ def main():
         axes[2][index].axis("off")
     plt.tight_layout()
     logger.info(
-        f'Saving plot in {os.path.join(args.experiment_path,"samples_plot.svg")}'
+        f"Saving plot in {os.path.join(args.experiment_path, 'samples_plot.svg')}"
     )
-    fig.savefig(
-        os.path.join(args.experiment_path, "samples_plot.svg"), format="svg"
-    )
+    fig.savefig(os.path.join(args.experiment_path, "samples_plot.svg"), format="svg")
 
 
 if __name__ == "__main__":

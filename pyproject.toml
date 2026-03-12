@@ -1,0 +1,23 @@
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+    "E501",   # line-too-long is handled by the formatter
+    "B006",   # mutable default arguments (would require logic changes)
+    "B007",   # unused loop variable
+    "UP007",  # keep Optional[X] / Union[X, Y] style for clarity
+    "BLE001", # broad except in train.py is intentional (logs via logger.exception)
+    "B905",   # zip() without strict= — internal RL loops always have equal-length params
+]
+
+[tool.ruff.lint.per-file-ignores]
+# MultiLabelBinarizer IS used (self.mlb = MultiLabelBinarizer())
+"src/envs/image_dataset.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

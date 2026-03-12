@@ -1,24 +1,24 @@
-import yaml
-import time
-import random
-import numpy as np
-import torch
-from torch.utils.tensorboard import SummaryWriter
-from envs.photo_env import PhotoEnhancementEnv
-from envs.photo_env import PhotoEnhancementEnvTest
-from sac.sac_algorithm import SAC
 import argparse
 import logging
+import os
+import random
+import re
+import time
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+import torch
+import yaml
+from torch.utils.tensorboard import SummaryWriter
+from tqdm.auto import tqdm
+
+from envs.photo_env import PhotoEnhancementEnv, PhotoEnhancementEnvTest
+from sac.sac_algorithm import SAC
 from sac.utils import (
     save_actor_head,
     save_critic_head,
 )
-from tqdm.auto import tqdm
-
-from datetime import datetime
-import os
-from pathlib import Path
-import re
 
 
 def sanitize_filename(name):
@@ -29,7 +29,7 @@ def getdatetime():
     return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
-class Config(object):
+class Config:
     def __init__(self, dictionary):
         self.__dict__.update(dictionary)
 
@@ -85,14 +85,10 @@ def main():
     ]  # Truncate to 255 characters to avoid potential issues with very long paths
     run_dir = os.path.join(args.outdir, run_name)
 
-    with make_dirs_and_open(
-        os.path.join(run_dir, "configs/sac_config.yaml"), "w"
-    ) as f:
+    with make_dirs_and_open(os.path.join(run_dir, "configs/sac_config.yaml"), "w") as f:
         yaml.dump(config_dict, f, indent=4, default_flow_style=False)
 
-    with make_dirs_and_open(
-        os.path.join(run_dir, "configs/env_config.yaml"), "w"
-    ) as f:
+    with make_dirs_and_open(os.path.join(run_dir, "configs/env_config.yaml"), "w") as f:
         yaml.dump(env_config_dict, f, indent=4, default_flow_style=False)
 
     SEED = sac_config.seed
@@ -137,27 +133,21 @@ def main():
     )
 
     logger.info(f"Sliders used {env.edit_sliders}")
-    logger.info(f"Number of sliders used { env.num_parameters}")
-    logger.info(f"Sliders used {test_env .edit_sliders}")
-    logger.info(f"Number of sliders used {test_env .num_parameters}")
+    logger.info(f"Number of sliders used {env.num_parameters}")
+    logger.info(f"Sliders used {test_env.edit_sliders}")
+    logger.info(f"Number of sliders used {test_env.num_parameters}")
 
     writer = SummaryWriter(run_dir)
     writer.add_text(
         "SAC_hyperparameters",
-        "|param|value|\n|-|-|\n%s"
-        % (
-            "\n".join(
-                [f"|{key}|{value}|" for key, value in vars(sac_config).items()]
-            )
+        "|param|value|\n|-|-|\n{}".format(
+            "\n".join([f"|{key}|{value}|" for key, value in vars(sac_config).items()])
         ),
     )
     writer.add_text(
         "env_parameters",
-        "|param|value|\n|-|-|\n%s"
-        % (
-            "\n".join(
-                [f"|{key}|{value}|" for key, value in vars(env_config).items()]
-            )
+        "|param|value|\n|-|-|\n{}".format(
+            "\n".join([f"|{key}|{value}|" for key, value in vars(env_config).items()])
         ),
     )
     try:
@@ -174,9 +164,7 @@ def main():
 
         agent.start_time = time.time()
         logger.info(f"Start Training at {getdatetime()}")
-        for i in tqdm(
-            range(sac_config.total_timesteps), position=0, leave=True
-        ):
+        for i in tqdm(range(sac_config.total_timesteps), position=0, leave=True):
             episode_count = 0
             agent.reset_env()
             envs_mean_rewards = []
@@ -216,9 +204,7 @@ def main():
                 with torch.no_grad():
                     n_images = 5
                     obs = test_env.reset()
-                    actions = agent.actor.get_action(
-                        **obs.to(sac_config.device)
-                    )
+                    actions = agent.actor.get_action(**obs.to(sac_config.device))
                     _, rewards, dones = test_env.step(actions[0])
                     agent.writer.add_scalar(
                         "charts/test_mean_episodic_return",
@@ -273,15 +259,12 @@ def main():
             models_dir = os.path.join(run_dir, "models")
             os.makedirs(models_dir, exist_ok=True)
             logger.info(f"Saving models in {models_dir}")
-            torch.save(
-                agent.backbone.state_dict(), run_dir + "/models/backbone.pth"
-            )
+            torch.save(agent.backbone.state_dict(), run_dir + "/models/backbone.pth")
             save_actor_head(agent.actor, run_dir + "/models/actor_head.pth")
             save_critic_head(agent.qf1, run_dir + "/models/qf1_head.pth")
             save_critic_head(agent.qf2, run_dir + "/models/qf2_head.pth")
         writer.close()
     except Exception:
-
         logger.exception("An error occurred during training")
         if agent.global_step > 1000:
             if args.save_model:
@@ -292,14 +275,11 @@ def main():
                     agent.backbone.state_dict(),
                     run_dir + "/models/backbone.pth",
                 )
-                save_actor_head(
-                    agent.actor, run_dir + "/models/actor_head.pth"
-                )
+                save_actor_head(agent.actor, run_dir + "/models/actor_head.pth")
                 save_critic_head(agent.qf1, run_dir + "/models/qf1_head.pth")
                 save_critic_head(agent.qf2, run_dir + "/models/qf2_head.pth")
         writer.close()
 
 
 if __name__ == "__main__":
-
     main()

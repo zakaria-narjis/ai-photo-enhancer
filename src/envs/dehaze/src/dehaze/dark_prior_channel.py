@@ -1,19 +1,14 @@
-from __future__ import print_function
-from __future__ import division
-
 import cv2
 import numpy as np
 
 
 def statistic(t):
     print(
-        "Shape:{}, Dtype: {}, Min: {}, Max: {}, Avg: {}".format(
-            t.shape, t.dtype, t.min(), t.max(), t.sum() / t.size
-        )
+        f"Shape:{t.shape}, Dtype: {t.dtype}, Min: {t.min()}, Max: {t.max()}, Avg: {t.sum() / t.size}"
     )
 
 
-class DarkPriorChannelDehaze(object):
+class DarkPriorChannelDehaze:
     """Dehaze using dark prior channel method from Kaiming He etc.
 
     Reference:
@@ -113,9 +108,7 @@ class DarkPriorChannelDehaze(object):
 
         NOTE: not implemented
         """
-        raise NotImplementedError(
-            "soft_mat is deprecated, guided_filter instead"
-        )
+        raise NotImplementedError("soft_mat is deprecated, guided_filter instead")
 
     def guided_filter(self, img, img_guide, epsilon=0.0001):
         """Smooth filter which keep edge property.
@@ -128,16 +121,12 @@ class DarkPriorChannelDehaze(object):
         Return:
             A smoothed version of img, `np.ndarray` of size [h, w, 1]
         """
-        g_mean = cv2.boxFilter(
-            img_guide, cv2.CV_32F, (self.radius, self.radius)
-        )
+        g_mean = cv2.boxFilter(img_guide, cv2.CV_32F, (self.radius, self.radius))
         g_corr = cv2.boxFilter(
             img_guide * img_guide, cv2.CV_32F, (self.radius, self.radius)
         )
         i_mean = cv2.boxFilter(img, cv2.CV_32F, (self.radius, self.radius))
-        gi_corr = cv2.boxFilter(
-            img * img_guide, cv2.CV_32F, (self.radius, self.radius)
-        )
+        gi_corr = cv2.boxFilter(img * img_guide, cv2.CV_32F, (self.radius, self.radius))
 
         g_var = g_corr - g_mean * g_mean
         gi_cov = gi_corr - i_mean * g_mean
@@ -163,9 +152,7 @@ class DarkPriorChannelDehaze(object):
 
         if self.refine:
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            t = self.guided_filter(
-                t.reshape(img_gray.shape), img_gray
-            ).reshape(t.shape)
+            t = self.guided_filter(t.reshape(img_gray.shape), img_gray).reshape(t.shape)
 
         t = np.maximum(self.t_min, t)
         return self.reconstruct(img, at, t)

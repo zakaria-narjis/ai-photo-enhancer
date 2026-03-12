@@ -1,6 +1,7 @@
+import math
+
 import cv2
 import numpy as np
-import math
 from dehaze.src import dehaze
 
 
@@ -67,7 +68,7 @@ class AdjustDehaze:
 
     def __call__(self, list_editted, parameters):
         editted = list_editted[0]
-        scale = max((editted.shape[:2])) / 512.0
+        scale = max(editted.shape[:2]) / 512.0
         omega = parameters[0]
         editted_ = (
             dehaze.DarkPriorChannelDehaze(
@@ -92,7 +93,7 @@ class AdjustClarity:
 
     def __call__(self, list_editted, parameters):
         editted = list_editted[0]
-        scale = max((editted.shape[:2])) / 512.0
+        scale = max(editted.shape[:2]) / 512.0
         clarity = parameters[0]
 
         unsharped = (
@@ -357,9 +358,7 @@ class Srgb2Photopro:
         thre_photopro = 1 / 512.0
 
         srgb[srgb <= thre_srgb] /= 12.92
-        srgb[srgb > thre_srgb] = (
-            (srgb[srgb > thre_srgb] + k) / (1 + k)
-        ) ** 2.4
+        srgb[srgb > thre_srgb] = ((srgb[srgb > thre_srgb] + k) / (1 + k)) ** 2.4
 
         image = srgb
         sb = image[:, :, 0:1]
@@ -371,9 +370,9 @@ class Srgb2Photopro:
 
         photopro = np.concatenate((photoprob, photoprog, photopror), axis=2)
         photopro = np.clip(photopro, 0, 1)
-        photopro[photopro >= thre_photopro] = photopro[
-            photopro >= thre_photopro
-        ] ** (1 / 1.8)
+        photopro[photopro >= thre_photopro] = photopro[photopro >= thre_photopro] ** (
+            1 / 1.8
+        )
         photopro[photopro < thre_photopro] *= 16
 
         return [photopro]
@@ -408,9 +407,9 @@ class Photopro2Srgb:
         thre_srgb = 0.04045 / 12.92
 
         photopro[photopro < thre_photopro] *= 1.0 / 16
-        photopro[photopro >= thre_photopro] = photopro[
-            photopro >= thre_photopro
-        ] ** (1.8)
+        photopro[photopro >= thre_photopro] = photopro[photopro >= thre_photopro] ** (
+            1.8
+        )
 
         photoprob = photopro[:, :, 0:1]
         photoprog = photopro[:, :, 1:2]
@@ -422,9 +421,7 @@ class Photopro2Srgb:
         srgb = np.concatenate((sb, sg, sr), axis=2)
 
         srgb = np.clip(srgb, 0, 1)
-        srgb[srgb > thre_srgb] = (1 + k) * srgb[srgb > thre_srgb] ** (
-            1 / 2.4
-        ) - k
+        srgb[srgb > thre_srgb] = (1 + k) * srgb[srgb > thre_srgb] ** (1 / 2.4) - k
         srgb[srgb <= thre_srgb] *= 12.92
 
         return [srgb]

@@ -1,9 +1,8 @@
 import torch
-from torch import nn
 import torch.nn.functional as F
-from torchvision import models
-from torchvision import transforms
 import torch.nn.init as init
+from torch import nn
+from torchvision import models, transforms
 
 LOG_STD_MAX = 3
 LOG_STD_MIN = -5
@@ -55,14 +54,10 @@ class ResNETHistBackbone(nn.Module):
 
 
 class CrossModalAttention(nn.Module):
-    def __init__(
-        self, bert_dim=768, clip_dim=512, resnet_dim=512, common_dim=512
-    ):
+    def __init__(self, bert_dim=768, clip_dim=512, resnet_dim=512, common_dim=512):
         super().__init__()
         self.bert_projection = nn.Linear(bert_dim, common_dim)
-        self.attention = nn.MultiheadAttention(
-            embed_dim=common_dim * 2, num_heads=8
-        )
+        self.attention = nn.MultiheadAttention(embed_dim=common_dim * 2, num_heads=8)
 
     def forward(self, bert_features, clip_features, resnet_features):
         b = self.bert_projection(bert_features)
@@ -175,9 +170,7 @@ class Actor(nn.Module):
         mean, log_std = self(**kwargs)
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
-        x_t = (
-            normal.rsample()
-        )  # for reparameterization trick (mean + std * N(0,1))
+        x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
         y_t = torch.tanh(x_t)
         action = y_t * self.action_scale + self.action_bias
         log_prob = normal.log_prob(x_t)

@@ -1,12 +1,13 @@
+import os
+
+import kornia.color as K
 import torch
+import torchvision.transforms.v2.functional as F
+from sklearn.preprocessing import MultiLabelBinarizer
 from torch.utils.data import Dataset
 from torchvision.io import read_image
-import torchvision.transforms.v2.functional as F
-import os
-from sklearn.preprocessing import MultiLabelBinarizer
-from transformers import BertTokenizer, BertModel, CLIPProcessor, CLIPModel
 from tqdm import tqdm
-import kornia.color as K
+from transformers import BertModel, BertTokenizer, CLIPModel, CLIPProcessor
 
 
 class FiveKDataset(Dataset):
@@ -23,9 +24,7 @@ class FiveKDataset(Dataset):
         current_dir = os.getcwd()
         dataset_dir = os.path.join(current_dir, "dataset")
         self.IMGS_PATH = os.path.join(dataset_dir, f"FiveK/{mode}")
-        self.FEATURES_PATH = os.path.join(
-            dataset_dir, "processed_categories_2.txt"
-        )
+        self.FEATURES_PATH = os.path.join(dataset_dir, "processed_categories_2.txt")
         self.resize = resize
         self.image_size = image_size
         self.augment_data = augment_data
@@ -36,7 +35,7 @@ class FiveKDataset(Dataset):
 
         # Load semantic features from processed_categories.txt
         self.features = {}
-        with open(self.FEATURES_PATH, "r") as f:
+        with open(self.FEATURES_PATH) as f:
             for line in f:
                 parts = line.strip().split(",")
                 img_name = parts[0]
@@ -44,9 +43,7 @@ class FiveKDataset(Dataset):
                 self.features[img_name] = img_features
 
         # Load image files
-        self.img_files = [
-            f for f in os.listdir(os.path.join(self.IMGS_PATH, "input"))
-        ]
+        self.img_files = [f for f in os.listdir(os.path.join(self.IMGS_PATH, "input"))]
 
         # Prepare MultiLabelBinarizer
         all_features = []
@@ -113,12 +110,8 @@ class FiveKDataset(Dataset):
 
         for img_name in tqdm(self.img_files):
             # Load and preprocess images
-            source = read_image(
-                os.path.join(self.IMGS_PATH, "input", img_name)
-            )
-            target = read_image(
-                os.path.join(self.IMGS_PATH, "target", img_name)
-            )
+            source = read_image(os.path.join(self.IMGS_PATH, "input", img_name))
+            target = read_image(os.path.join(self.IMGS_PATH, "target", img_name))
 
             if self.resize:
                 source = F.resize(
@@ -139,9 +132,7 @@ class FiveKDataset(Dataset):
             if self.use_txt_features == "one_hot":
                 one_hot = self.mlb.transform([self.features[img_name]])[0]
                 self.one_hot_features.append(
-                    torch.tensor(
-                        one_hot, dtype=torch.float32, device=self.device
-                    )
+                    torch.tensor(one_hot, dtype=torch.float32, device=self.device)
                 )
             elif self.use_txt_features == "categorical":
                 cat = [
@@ -166,12 +157,8 @@ class FiveKDataset(Dataset):
         elif self.use_txt_features == "categorical":
             self.cat_features = torch.stack(self.cat_features)
         elif self.use_txt_features == "histogram":
-            self.source_histograms = torch.stack(
-                [h[0] for h in self.histograms]
-            )
-            self.target_histograms = torch.stack(
-                [h[1] for h in self.histograms]
-            )
+            self.source_histograms = torch.stack([h[0] for h in self.histograms])
+            self.target_histograms = torch.stack([h[1] for h in self.histograms])
 
         print("Images and features preloaded and stored in GPU memory.")
 
@@ -182,13 +169,9 @@ class FiveKDataset(Dataset):
 
         tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         bert_model = (
-            BertModel.from_pretrained("bert-base-uncased")
-            .to(self.device)
-            .eval()
+            BertModel.from_pretrained("bert-base-uncased").to(self.device).eval()
         )
-        clip_processor = CLIPProcessor.from_pretrained(
-            "openai/clip-vit-base-patch32"
-        )
+        clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
         clip_model = (
             CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
             .to(self.device)
@@ -221,9 +204,7 @@ class FiveKDataset(Dataset):
             )
             with torch.no_grad():
                 clip_features = clip_model.get_image_features(**clip_inputs)
-            self.clip_features.append(
-                clip_features.squeeze(0)
-            )  # Shape: (512,)
+            self.clip_features.append(clip_features.squeeze(0))  # Shape: (512,)
 
         self.bert_features = torch.stack(self.bert_features).to(self.device)
         self.clip_features = torch.stack(self.clip_features).to(self.device)
@@ -240,12 +221,8 @@ class FiveKDataset(Dataset):
             target = self.target_images[idx]
         else:
             img_name = self.img_files[idx]
-            source = read_image(
-                os.path.join(self.IMGS_PATH, "input", img_name)
-            )
-            target = read_image(
-                os.path.join(self.IMGS_PATH, "target", img_name)
-            )
+            source = read_image(os.path.join(self.IMGS_PATH, "input", img_name))
+            target = read_image(os.path.join(self.IMGS_PATH, "target", img_name))
 
             if self.resize:
                 source = F.resize(
@@ -276,14 +253,10 @@ class FiveKDataset(Dataset):
             if self.pre_load_images:
                 return source, self.one_hot_features[idx], target
             else:
-                one_hot = self.mlb.transform(
-                    [self.features[self.img_files[idx]]]
-                )[0]
+                one_hot = self.mlb.transform([self.features[self.img_files[idx]]])[0]
                 return (
                     source,
-                    torch.tensor(
-                        one_hot, dtype=torch.float32, device=self.device
-                    ),
+                    torch.tensor(one_hot, dtype=torch.float32, device=self.device),
                     target,
                 )
         elif self.use_txt_features == "categorical":

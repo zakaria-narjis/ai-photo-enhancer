@@ -1,25 +1,23 @@
-from .sac_networks import (
-    Actor,
-    SoftQNetwork,
-    ResNETBackbone,
-    SemanticBackbone,
-    SemanticBackboneOC,
-    ResNETHistBackbone,
-)
-
 import time
 
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-
 from tensordict import TensorDict
-from torchrl.data import TensorDictReplayBuffer, LazyMemmapStorage
+from torchrl.data import LazyMemmapStorage, TensorDictReplayBuffer
 from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
+
+from .sac_networks import (
+    Actor,
+    ResNETBackbone,
+    ResNETHistBackbone,
+    SemanticBackbone,
+    SemanticBackboneOC,
+    SoftQNetwork,
+)
 
 
 class SAC:
-
     def __init__(self, env, args, writer, critic_only_backbone=False):
         self.critic_only_backbone = critic_only_backbone
         self.env = env  # train env
@@ -60,9 +58,7 @@ class SAC:
         if args.autotune:
             # self.target_entropy = -torch.prod(torch.Tensor(env.action_space._shape[1]).to(self.device)).item()
             self.target_entropy = -env.action_space._shape[1]
-            self.log_alpha = torch.zeros(
-                1, requires_grad=True, device=self.device
-            )
+            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
             self.a_optimizer = optim.Adam([self.log_alpha], lr=args.q_lr)
         else:
@@ -98,9 +94,7 @@ class SAC:
         batch_obs = self.state.to(self.device)
 
         if self.global_step < self.args.learning_starts:
-            actions = self.env.action_space.sample(batch_obs.shape[0]).to(
-                self.device
-            )
+            actions = self.env.action_space.sample(batch_obs.shape[0]).to(self.device)
         else:
             actions, _, _ = self.actor.get_action(**batch_obs)
             actions = actions.detach()
@@ -142,8 +136,8 @@ class SAC:
             data = self.rb.sample(self.args.batch_size).to(self.device)
             with torch.no_grad():
                 if self.args.gamma != 0:
-                    next_state_actions, next_state_log_pi, _ = (
-                        self.actor.get_action(**data["next_observations"])
+                    next_state_actions, next_state_log_pi, _ = self.actor.get_action(
+                        **data["next_observations"]
                     )
                     qf1_next_target = self.qf1_target(
                         **data["next_observations"], actions=next_state_actions
@@ -184,9 +178,7 @@ class SAC:
                 for _ in range(
                     self.args.policy_frequency
                 ):  # compensate for the delay by doing 'actor_update_interval' instead of 1
-                    pi, log_pi, _ = self.actor.get_action(
-                        **data["observations"]
-                    )
+                    pi, log_pi, _ = self.actor.get_action(**data["observations"])
                     qf1_pi = self.qf1(**data["observations"], actions=pi)
                     qf2_pi = self.qf2(**data["observations"], actions=pi)
                     min_qf_pi = torch.min(qf1_pi, qf2_pi)
@@ -251,9 +243,7 @@ class SAC:
                 self.writer.add_scalar(
                     "losses/actor_loss", actor_loss.item(), self.global_step
                 )
-                self.writer.add_scalar(
-                    "losses/alpha", self.alpha, self.global_step
-                )
+                self.writer.add_scalar("losses/alpha", self.alpha, self.global_step)
                 # print("SPS:", int(self.global_step / (time.time() - self.start_time)))
                 self.writer.add_scalar(
                     "charts/SPS",

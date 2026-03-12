@@ -1,17 +1,17 @@
+import torch
+
 from .sac_networks import (
     Actor,
-    SoftQNetwork,
     ResNETBackbone,
+    ResNETHistBackbone,
     SemanticBackbone,
     SemanticBackboneOC,
-    ResNETHistBackbone,
+    SoftQNetwork,
 )
-import torch
 from .utils import load_actor_head, load_critic_head
 
 
 class InferenceAgent:
-
     def __init__(self, inference_env, inference_args):
         self.args = inference_args
         self.device = inference_args.device
@@ -58,12 +58,8 @@ class InferenceAgent:
             n_samples = self.args.n_actions_samples
         best_actions = None
         with torch.inference_mode():
-
             if deterministic:
-
-                actions = self.actor.get_action(**obs.to(self.device))[
-                    2
-                ]  # mean action
+                actions = self.actor.get_action(**obs.to(self.device))[2]  # mean action
                 best_actions = actions
 
             else:
@@ -88,9 +84,7 @@ class InferenceAgent:
                         best_actions[values > best_values] = actions[
                             values > best_values
                         ]
-                        best_values[values > best_values] = values[
-                            values > best_values
-                        ]
+                        best_values[values > best_values] = values[values > best_values]
 
         if self.discretize:
             best_actions = self.discretize_actions(best_actions)
@@ -98,12 +92,8 @@ class InferenceAgent:
 
     def critic(self, obs, actions):
         with torch.inference_mode():
-            qf1_pi = self.qf1(
-                **obs.to(self.device), actions=actions.to(self.device)
-            )
-            qf2_pi = self.qf2(
-                **obs.to(self.device), actions=actions.to(self.device)
-            )
+            qf1_pi = self.qf1(**obs.to(self.device), actions=actions.to(self.device))
+            qf2_pi = self.qf2(**obs.to(self.device), actions=actions.to(self.device))
             value = torch.min(qf1_pi, qf2_pi)
 
         return value

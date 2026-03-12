@@ -1,11 +1,9 @@
-from __future__ import print_function
-
 import argparse
-import cv2
 import os
 
-import utils
+import cv2
 import dehaze
+import utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -17,9 +15,7 @@ parser.add_argument(
 parser.add_argument(
     "--window", type=int, default=15, help="window size of dark channel"
 )
-parser.add_argument(
-    "--radius", type=int, default=80, help="radius of guided filter"
-)
+parser.add_argument("--radius", type=int, default=80, help="radius of guided filter")
 parser.add_argument(
     "--omega",
     type=float,
@@ -64,4 +60,4 @@ src_img = cv2.imread(src_path, cv2.IMREAD_COLOR)
 img_dehaze = dehazer(src_img)
 cv2.imwrite(dst_path, img_dehaze)
 
-print("Saved to: {}".format(dst_path))
+print(f"Saved to: {dst_path}")

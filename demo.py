@@ -1,27 +1,26 @@
+import os
+
+import numpy as np
 import streamlit as st
 import torch
-from PIL import Image
-import numpy as np
-from streamlit_image_comparison import image_comparison
-from src.envs.new_edit_photo import PhotoEditor
-from src.sac.sac_inference import InferenceAgent
-import yaml
-import os
-from src.envs.photo_env import PhotoEnhancementEnvTest
-from tensordict import TensorDict
 import torchvision.transforms.v2.functional as F
-from streamlit import cache_resource
-from bokeh.plotting import figure
+import yaml
 from bokeh.models import ColumnDataSource
+from bokeh.plotting import figure
+from PIL import Image
+from src.envs.new_edit_photo import PhotoEditor
+from src.envs.photo_env import PhotoEnhancementEnvTest
+from src.sac.sac_inference import InferenceAgent
+from streamlit import cache_resource
+from streamlit_image_comparison import image_comparison
+from tensordict import TensorDict
 
 # Set page config to wide mode
 st.set_page_config(layout="wide")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # DEVICE = torch.device("cpu")
-MODEL_PATH = (
-    "experiments/runs/ResNet_10_sliders__224_128_aug__2024-07-23_21-23-35"
-)
+MODEL_PATH = "experiments/runs/ResNet_10_sliders__224_128_aug__2024-07-23_21-23-35"
 SLIDERS = [
     "temp",
     "tint",
@@ -48,7 +47,7 @@ SLIDERS_ORD = [
 ]
 
 
-class Config(object):
+class Config:
     def __init__(self, dictionary):
         self.__dict__.update(dictionary)
 
@@ -59,9 +58,7 @@ def load_preprocessor_agent(preprocessor_agent_path, device):
     #     os.path.join(preprocessor_agent_path, "configs/sac_config.yaml")
     # ) as f:
     #     sac_config_dict = yaml.load(f, Loader=yaml.FullLoader)
-    with open(
-        os.path.join(preprocessor_agent_path, "configs/env_config.yaml")
-    ) as f:
+    with open(os.path.join(preprocessor_agent_path, "configs/env_config.yaml")) as f:
         env_config_dict = yaml.load(f, Loader=yaml.FullLoader)
     with open(os.path.join("src/configs/inference_config.yaml")) as f:
         inf_config_dict = yaml.load(f, Loader=yaml.FullLoader)
@@ -155,18 +152,14 @@ def auto_enhance(image, deterministic=True):
 def slider_callback():
     for name in SLIDERS:
         st.session_state.params[name] = st.session_state[f"slider_{name}"]
-    image_tensor = (
-        torch.from_numpy(st.session_state.original_image).float() / 255.0
-    )
+    image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
     st.session_state.enhanced_image = enhance_image(
         image_tensor, st.session_state.params
     )
 
 
 def auto_random_enhance_callback():
-    image_tensor = (
-        torch.from_numpy(st.session_state.original_image).float() / 255.0
-    )
+    image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
     auto_params = auto_enhance(image_tensor, deterministic=False)
     for i, name in enumerate(SLIDERS_ORD):
         st.session_state[f"slider_{name}"] = int(auto_params[i])
@@ -177,9 +170,7 @@ def auto_random_enhance_callback():
 
 
 def auto_enhance_callback():
-    image_tensor = (
-        torch.from_numpy(st.session_state.original_image).float() / 255.0
-    )
+    image_tensor = torch.from_numpy(st.session_state.original_image).float() / 255.0
     auto_params = auto_enhance(image_tensor)
     for i, name in enumerate(SLIDERS_ORD):
         st.session_state[f"slider_{name}"] = int(auto_params[i])

@@ -1,5 +1,6 @@
-from .image_dataset import FiveKDataset
 from torch.utils.data import DataLoader
+
+from .image_dataset import FiveKDataset
 
 
 class PhotoEnhancement:
@@ -60,9 +61,7 @@ def create_dataloaders(
             pre_load_images=pre_load_images,
         )
         train_dataset = train_dataset.generate_dataset()
-        dataloader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=shuffle
-        )
+        dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
     else:
         test_dataset = PhotoEnhancement(
             image_size,
@@ -74,8 +73,6 @@ def create_dataloaders(
             pre_load_images=pre_load_images,
         )
         test_dataset = test_dataset.generate_dataset()
-        dataloader = DataLoader(
-            test_dataset, batch_size=batch_size, shuffle=shuffle
-        )
+        dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=shuffle)
 
     return dataloader
