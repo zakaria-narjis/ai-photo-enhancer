@@ -3,9 +3,13 @@ import logging
 import os
 import random
 import re
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 import torch
@@ -13,9 +17,9 @@ import yaml
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
-from envs.photo_env import PhotoEnhancementEnv, PhotoEnhancementEnvTest
-from sac.sac_algorithm import SAC
-from sac.utils import (
+from src.envs.photo_env import PhotoEnhancementEnv, PhotoEnhancementEnvTest
+from src.sac.sac_algorithm import SAC
+from src.sac.utils import (
     save_actor_head,
     save_critic_head,
 )
@@ -175,7 +179,7 @@ def main():
                 agent.global_step += 1
                 rewards, batch_dones = agent.train()
                 envs_mean_rewards.append(rewards.mean().item())
-                if (batch_dones is True).any():
+                if batch_dones.any():
                     num_env_done = int(batch_dones.sum().item())
                     agent.writer.add_scalar(
                         "charts/num_env_done", num_env_done, agent.global_step
@@ -188,9 +192,7 @@ def main():
                         agent.global_step,
                     )
 
-                if (
-                    batch_dones is True
-                ).all() is True or episode_count == sac_config.max_episode_timesteps:
+                if batch_dones.all() or episode_count == sac_config.max_episode_timesteps:
                     episode_count = 0
                     break
             if (
@@ -279,6 +281,7 @@ def main():
                 save_critic_head(agent.qf1, run_dir + "/models/qf1_head.pth")
                 save_critic_head(agent.qf2, run_dir + "/models/qf2_head.pth")
         writer.close()
+        raise
 
 
 if __name__ == "__main__":

@@ -1,595 +1,496 @@
-import cv2
-import numpy as np
+"""Fast, Lightroom-style global photo adjustments for the RL environment.
+
+The editor accepts display-encoded sRGB images in ``(B, H, W, 3)`` layout and
+normalized actions in ``[-1, 1]``. Processing is performed in scene-linear
+Rec.2020, with an edge-aware log-luminance pass for Highlights/Shadows and
+perceptual colour controls in OkLab.
+
+The implementation is intentionally limited to the ten controls that account
+for most global photographic correction. Expensive creative/spatial effects
+such as Clarity and Dehaze are outside this training environment.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+
 import torch
 import torch.nn.functional as F
-
-
-def sigmoid_inverse(y):
-    epsilon = 10 ** (-3)
-    y = F.relu(y - epsilon) + epsilon
-    y = 1 - epsilon - F.relu((1 - epsilon) - y)
-    y = (1 / y) - 1
-    output = -torch.log(y)
-    return output
-
-
-class Sigmoid:
-    def __init__(self):
-        self.num_parameters = 0
-
-    def __call__(self, images):
-        return torch.sigmoid(images)
-
-
-class SigmoidInverse:
-    def __init__(self):
-        self.num_parameters = 0
-
-    def __call__(self, images):
-        return sigmoid_inverse(images)
-
-
-new_sig_inv = SigmoidInverse()
-
-
-class AdjustContrast:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["contrast"]
-
-    def __call__(self, images: torch.Tensor, parameters: torch.Tensor):
-
-        assert images.dim() == 4
-        assert images.shape[0] == parameters.shape[0]
-
-        batch_size = parameters.shape[0]
-        mean = images.view(batch_size, -1).mean(1)
-        mean = mean.view(batch_size, 1, 1, 1)
-        parameters = parameters.view(batch_size, 1, 1, 1)
-        editted = (images - mean) * (parameters + 1) + mean
-        editted = F.relu(editted)
-        editted = 1 - F.relu(1 - editted)
-        return editted
-
-
-class AdjustDehaze:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["dehaze"]
-
-    def __call__(self, images, parameters):
-        # Dehaze is not yet implemented; returns images unchanged (stub).
-        return 0
-
-
-class AdjustClarity:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["clarity"]
-
-    def __call__(self, images, parameters):
-        """
-        Takes a batch of images where B (the last dim) is the batch size
-        args:
-            images: torch.Tensor # B H W C
-            parameters :torch.Tensor # N
-        return:
-            output: torch.Tensor #  B H W C
-        """
-        assert images.dim() == 4
-        batch_size = parameters.shape[0]
-        output = []
-        clarity = parameters.view(batch_size, 1, 1, 1)
-        for image in images:
-            input = image.numpy()
-            scale = max(input.shape[:2]) / 512.0
-            unsharped = (
-                cv2.bilateralFilter(
-                    (input * 255.0).astype(np.uint8),
-                    int(32 * scale),
-                    50,
-                    10 * scale,
-                )
-                / 255.0
-            )
-            output.append(torch.tensor(unsharped))
-        output = torch.stack(output)
-        editted_images = images + (images - output) * clarity
-
-        return editted_images
-
-
-class AdjustExposure:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["exposure"]
-
-    def __call__(self, images, parameters):
-        batch_size = parameters.shape[0]
-        exposure = parameters.view(batch_size, 1, 1, 1)
-        output = images + exposure * 5
-        return output
-
-
-class AdjustTemp:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["temp"]
-
-    def __call__(self, images, parameters):
-        batch_size = parameters.shape[0]
-        temp = parameters.view(batch_size, 1, 1, 1)
-        editted = torch.clone(images)
-
-        index_high = (temp > 0).view(-1)
-        index_low = (temp <= 0).view(-1)
-
-        editted[index_high, :, :, 1] += temp[index_high, :, :, 0] * 1.6
-        editted[index_high, :, :, 2] += temp[index_high, :, :, 0] * 2
-        editted[index_low, :, :, 0] -= temp[index_low, :, :, 0] * 2.0
-        editted[index_low, :, :, 1] -= temp[index_low, :, :, 0] * 1.0
-
-        return editted
-
-
-class AdjustTint:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["tint"]
-
-    def __call__(self, images, parameters):
-        batch_size = parameters.shape[0]
-        tint = parameters.view(batch_size, 1, 1, 1)
-        editted = torch.clone(images)
-
-        index_high = (tint > 0).view(-1)
-        index_low = (tint <= 0).view(-1)
-
-        editted[index_high, :, :, 0] += tint[index_high, :, :, 0] * 2
-        editted[index_high, :, :, 2] += tint[index_high, :, :, 0] * 1
-        editted[index_low, :, :, 1] -= tint[index_low, :, :, 0] * 2
-        editted[index_low, :, :, 2] -= tint[index_low, :, :, 0] * 1
-
-        return editted
-
-
-class AdjustShadows:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["shadows"]
-
-    def __call__(self, list_hsv, parameters):
-        batch_size = parameters.shape[0]
-        shadows = parameters.view(batch_size, 1, 1)
-
-        v = list_hsv[2]
-
-        # Calculate shadows mask
-
-        shadows_mask = 1 - torch.sigmoid((v - 0.0) * 5.0)
-        # Adjust v channel based on shadows mask
-        adjusted_v = v * (1 + shadows_mask * shadows * 5.0)
-
-        return [list_hsv[0], list_hsv[1], adjusted_v]
-
-
-class AdjustHighlights:  # I should change the sigmoid to torch.sigmoid
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["highlights"]
-
-    # def custom_sigmoid(self, x):
-    #     return 1 / (1 + torch.exp(-x))
-
-    def __call__(self, list_hsv, parameters):
-        batch_size = parameters.shape[0]
-        highlights = parameters.view(batch_size, 1, 1)
-
-        v = list_hsv[2]
-
-        # Calculate highlights mask using custom sigmoid function
-        highlights_mask = torch.sigmoid((v - 1) * 5)
-
-        # Adjust v channel based on highlights mask
-        adjusted_v = 1 - (1 - v) * (1 - highlights_mask * highlights * 5)
-
-        return [list_hsv[0], list_hsv[1], adjusted_v]
-
-
-class AdjustBlacks:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["blacks"]
-
-    def __call__(self, list_hsv, parameters):
-        batch_size = parameters.shape[0]
-        blacks = parameters.view(batch_size, 1, 1)
-        blacks = blacks + 1
-        v = list_hsv[2]
-
-        # Calculate the adjustment factor
-        adjustment_factor = (torch.sqrt(blacks) - 1) * 0.2
-
-        # Adjust the v channel
-        adjusted_v = v + (1 - v) * adjustment_factor
-
-        return [list_hsv[0], list_hsv[1], adjusted_v]
-
-
-class AdjustWhites:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["whites"]
-
-    def __call__(self, list_hsv, parameters):
-        batch_size = parameters.shape[0]
-        whites = parameters.view(batch_size, 1, 1)
-        whites = whites + 1
-        v = list_hsv[2]
-
-        # Calculate the adjustment factor
-        adjustment_factor = (torch.sqrt(whites) - 1) * 0.2
-
-        # Adjust the v channel
-        adjusted_v = v + v * adjustment_factor
-
-        return [list_hsv[0], list_hsv[1], adjusted_v]
-
-
-class Bgr2Hsv:
-    def __init__(self):
-        self.num_parameters = 0
-
-    def __call__(self, images):
-        editted = images
-
-        max_bgr, _ = editted.max(dim=-1, keepdim=True)
-        min_bgr, _ = editted.min(dim=-1, keepdim=True)
-
-        b = editted[..., 0]
-        g = editted[..., 1]
-        r = editted[..., 2]
-
-        b_g = b - g
-        g_r = g - r
-        r_b = r - b
-
-        b_min_flg = (1 - F.relu(torch.sign(b_g))) * F.relu(torch.sign(r_b))
-        g_min_flg = (1 - F.relu(torch.sign(g_r))) * F.relu(torch.sign(b_g))
-        r_min_flg = (1 - F.relu(torch.sign(r_b))) * F.relu(torch.sign(g_r))
-
-        epsilon = 10 ** (-5)
-        h1 = 60 * g_r / (max_bgr.squeeze() - min_bgr.squeeze() + epsilon) + 60
-        h2 = 60 * b_g / (max_bgr.squeeze() - min_bgr.squeeze() + epsilon) + 180
-        h3 = 60 * r_b / (max_bgr.squeeze() - min_bgr.squeeze() + epsilon) + 300
-        h = h1 * b_min_flg + h2 * r_min_flg + h3 * g_min_flg
-
-        v = max_bgr.squeeze()
-        s = (max_bgr.squeeze() - min_bgr.squeeze()) / (max_bgr.squeeze() + epsilon)
-
-        return [h, s, v]
-
-
-class AdjustVibrance:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["vibrance"]
-
-    def __call__(self, list_hsv, parameters):
-        batch_size = parameters.shape[0]
-        vibrance = parameters.view(batch_size, 1, 1)
-        vibrance = vibrance + 1
-        s = list_hsv[1]
-
-        # Calculate vibrance flag using custom sigmoid function
-        vibrance_flg = -torch.sigmoid((s - 0.5) * 10) + 1
-
-        # Adjust the s channel
-        adjusted_s = s * vibrance * vibrance_flg + s * (1 - vibrance_flg)
-
-        return [list_hsv[0], adjusted_s, list_hsv[2]]
-
-
-class AdjustSaturation:
-    def __init__(self):
-        self.num_parameters = 1
-        self.window_names = ["parameter"]
-        self.slider_names = ["saturation"]
-
-    def __call__(self, list_hsv, parameters):
-        batch_size = parameters.shape[0]
-        saturation = parameters.view(batch_size, 1, 1)
-        saturation = saturation + 1
-        s = list_hsv[1]
-
-        # Adjust the saturation
-        s_ = s * saturation
-        s_ = F.relu(s_)
-        s_ = 1 - F.relu(1 - s_)
-
-        return [list_hsv[0], s_, list_hsv[2]]
-
-
-class Hsv2Bgr:
-    def __init__(self):
-        self.num_parameters = 0
-
-    def __call__(self, list_hsv):
-        h, s, v = list_hsv
-
-        # Adjust h values
-        h = (
-            h * torch.relu(torch.sign(h - 0)) * (1 - torch.relu(torch.sign(h - 360)))
-            + (h - 360)
-            * torch.relu(torch.sign(h - 360))
-            * (1 - torch.relu(torch.sign(h - 720)))
-            + (h + 360)
-            * torch.relu(torch.sign(h + 360))
-            * (1 - torch.relu(torch.sign(h - 0)))
+from torch import nn
+
+# This order is part of the environment/checkpoint interface. It matches the
+# order used by the previous implementation and by demo.py's SLIDERS_ORD.
+SLIDER_ORDER: tuple[str, ...] = (
+    "contrast",
+    "exposure",
+    "temp",
+    "tint",
+    "whites",
+    "blacks",
+    "highlights",
+    "shadows",
+    "vibrance",
+    "saturation",
+)
+
+_GREY = 0.18
+_REC2020_LUMA = (0.2627, 0.6780, 0.0593)
+_SRGB_LUMA = (0.2126, 0.7152, 0.0722)
+
+# D65 matrices. Keeping the whole editing path in a linear wide-gamut space
+# avoids the clipping and hue shifts caused by editing gamma-encoded HSV.
+_SRGB_TO_XYZ = (
+    (0.4124564, 0.3575761, 0.1804375),
+    (0.2126729, 0.7151522, 0.0721750),
+    (0.0193339, 0.1191920, 0.9503041),
+)
+_REC2020_TO_XYZ = (
+    (0.6369580483, 0.1446169036, 0.1688809752),
+    (0.2627002120, 0.6779980715, 0.0593017165),
+    (0.0, 0.0280726930, 1.0609850577),
+)
+_BRADFORD = (
+    (0.8951, 0.2664, -0.1614),
+    (-0.7502, 1.7135, 0.0367),
+    (0.0389, -0.0685, 1.0296),
+)
+_XYZ_TO_LMS = (
+    (0.8189330101, 0.3618667424, -0.1288597137),
+    (0.0329845436, 0.9293118715, 0.0361456387),
+    (0.0482003018, 0.2643662691, 0.6338517070),
+)
+_LMS_TO_OKLAB = (
+    (0.2104542553, 0.7936177850, -0.0040720468),
+    (1.9779984951, -2.4285922050, 0.4505937099),
+    (0.0259040371, 0.7827717662, -0.8086757660),
+)
+
+
+def _matrix(values: tuple[tuple[float, ...], ...]) -> torch.Tensor:
+    return torch.tensor(values, dtype=torch.float32)
+
+
+def _apply_matrix(image: torch.Tensor, matrix: torch.Tensor) -> torch.Tensor:
+    """Apply row-major matrices shaped ``(3, 3)`` or ``(B, 3, 3)``."""
+    if matrix.ndim == 2:
+        return torch.matmul(image, matrix.transpose(0, 1))
+    return torch.einsum("bij,bhwj->bhwi", matrix, image)
+
+
+def _srgb_to_linear(image: torch.Tensor) -> torch.Tensor:
+    return torch.where(
+        image <= 0.04045,
+        image / 12.92,
+        ((image + 0.055) / 1.055).pow(2.4),
+    )
+
+
+def _linear_to_srgb(image: torch.Tensor) -> torch.Tensor:
+    image = image.clamp(0.0, 1.0)
+    return torch.where(
+        image <= 0.0031308,
+        image * 12.92,
+        1.055 * image.pow(1.0 / 2.4) - 0.055,
+    )
+
+
+def _smoothstep(edge0: float, edge1: float, value: torch.Tensor) -> torch.Tensor:
+    t = ((value - edge0) / (edge1 - edge0)).clamp(0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
+def _luminance(image: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+    return (image * weights).sum(dim=-1)
+
+
+def _log_luminance(image: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+    return torch.log2(_luminance(image, weights).clamp_min(1e-7) / _GREY)
+
+
+def _box_mean(plane: torch.Tensor, radius: int) -> torch.Tensor:
+    if radius <= 0:
+        return plane
+    kernel = radius * 2 + 1
+    padded = F.pad(plane, (radius, radius, radius, radius), mode="replicate")
+    return F.avg_pool2d(padded, kernel_size=kernel, stride=1)
+
+
+def _guided_base(
+    log_luminance: torch.Tensor, radius: int, eps: float = 0.35
+) -> torch.Tensor:
+    """Fast self-guided base layer, retaining edges while smoothing texture."""
+    source = log_luminance.unsqueeze(1)
+
+    # Large full-resolution windows are wasteful. Estimate the guided-filter
+    # coefficients on a proxy and upsample them, as in a fast guided filter.
+    step = max(1, min(16, radius // 3))
+    if step > 1:
+        height, width = source.shape[-2:]
+        low = F.interpolate(
+            source,
+            size=((height + step - 1) // step, (width + step - 1) // step),
+            mode="area",
         )
+        low_radius = max(1, round(radius / step))
+    else:
+        low = source
+        low_radius = radius
 
-        # Calculate h flags
-        h60_flg = torch.relu(torch.sign(h - 0)) * (1 - torch.relu(torch.sign(h - 60)))
-        h120_flg = torch.relu(torch.sign(h - 60)) * (
-            1 - torch.relu(torch.sign(h - 120))
+    mean = _box_mean(low, low_radius)
+    correlation = _box_mean(low * low, low_radius)
+    variance = (correlation - mean * mean).clamp_min(0.0)
+    a = variance / (variance + eps)
+    b = mean - a * mean
+    mean_a = _box_mean(a, low_radius)
+    mean_b = _box_mean(b, low_radius)
+
+    if step > 1:
+        mean_a = F.interpolate(
+            mean_a, size=source.shape[-2:], mode="bilinear", align_corners=False
         )
-        h180_flg = torch.relu(torch.sign(h - 120)) * (
-            1 - torch.relu(torch.sign(h - 180))
+        mean_b = F.interpolate(
+            mean_b, size=source.shape[-2:], mode="bilinear", align_corners=False
         )
-        h240_flg = torch.relu(torch.sign(h - 180)) * (
-            1 - torch.relu(torch.sign(h - 240))
-        )
-        h300_flg = torch.relu(torch.sign(h - 240)) * (
-            1 - torch.relu(torch.sign(h - 300))
-        )
-        h360_flg = torch.relu(torch.sign(h - 300)) * (
-            1 - torch.relu(torch.sign(h - 360))
-        )
-
-        C = v * s
-        b = (
-            v
-            - C
-            + C * (h240_flg + h300_flg)
-            + C * ((h / 60 - 2) * h180_flg + (6 - h / 60) * h360_flg)
-        )
-        g = (
-            v
-            - C
-            + C * (h120_flg + h180_flg)
-            + C * ((h / 60) * h60_flg + (4 - h / 60) * h240_flg)
-        )
-        r = (
-            v
-            - C
-            + C * (h60_flg + h360_flg)
-            + C * ((h / 60 - 4) * h300_flg + (2 - h / 60) * h120_flg)
-        )
-
-        # Add an extra dimension to b, g, r to concatenate them correctly
-        b = b.unsqueeze(-1)
-        g = g.unsqueeze(-1)
-        r = r.unsqueeze(-1)
-
-        bgr = torch.cat([b, g, r], dim=-1)
-
-        return bgr
+    return (mean_a * source + mean_b).squeeze(1)
 
 
-class Srgb2Photopro:
-    def __init__(self):
-        self.num_parameters = 0
-        k = 0.055
-        thre_srgb = 0.04045
-
-        self.k = k
-        self.thre_srgb = thre_srgb
-        self.thre_photopro = 1 / 512.0
-
-        # Transformation matrices
-        a = torch.tensor(
-            [
-                [0.4124564, 0.3575761, 0.1804375],
-                [0.2126729, 0.7151522, 0.0721750],
-                [0.0193339, 0.1191920, 0.9503041],
-            ],
-            dtype=torch.float32,
-        )
-        b = torch.tensor(
-            [
-                [1.3459433, -0.2556075, -0.0511118],
-                [-0.5445989, 1.5081673, 0.0205351],
-                [0.0000000, 0.0000000, 1.2118128],
-            ],
-            dtype=torch.float32,
-        )
-
-        self.M = torch.matmul(b, a)
-        self.M = self.M / self.M.sum(dim=1, keepdim=True)
-
-    def __call__(self, images):
-        srgb = images.clone()
-
-        with torch.no_grad():  # Disable gradient computation for inference
-            # sRGB to linear RGB
-            srgb = torch.where(
-                srgb <= self.thre_srgb,
-                srgb / 12.92,
-                ((srgb + self.k) / (1 + self.k)) ** 2.4,
-            )
-
-            sb = srgb[..., 0:1]
-            sg = srgb[..., 1:2]
-            sr = srgb[..., 2:3]
-
-            # Apply the transformation matrix
-            photopror = sr * self.M[0][0] + sg * self.M[0][1] + sb * self.M[0][2]
-            photoprog = sr * self.M[1][0] + sg * self.M[1][1] + sb * self.M[1][2]
-            photoprob = sr * self.M[2][0] + sg * self.M[2][1] + sb * self.M[2][2]
-
-            photopro = torch.cat((photoprob, photoprog, photopror), dim=-1)
-            photopro = torch.clamp(photopro, 0, 1)
-
-            # Apply the Photopro gamma correction
-            photopro = torch.where(
-                photopro >= self.thre_photopro,
-                photopro ** (1 / 1.8),
-                photopro * 16,
-            )
-
-            # Clear intermediate tensors
-            del srgb, sb, sg, sr, photopror, photoprog, photoprob
-            torch.cuda.empty_cache()
-
-        return photopro
+def _kim_xy(temperature: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    temperature = temperature.clamp(1667.0, 25000.0)
+    t2 = temperature * temperature
+    t3 = t2 * temperature
+    x_low = -0.2661239e9 / t3 - 0.2343589e6 / t2 + 0.8776956e3 / temperature + 0.179910
+    x_high = -3.0258469e9 / t3 + 2.1070379e6 / t2 + 0.2226347e3 / temperature + 0.240390
+    x = torch.where(temperature <= 4000.0, x_low, x_high)
+    x2 = x * x
+    x3 = x2 * x
+    y = torch.where(
+        temperature <= 2222.0,
+        -1.1063814 * x3 - 1.34811020 * x2 + 2.18555832 * x - 0.20219683,
+        torch.where(
+            temperature <= 4000.0,
+            -0.9549476 * x3 - 1.37418593 * x2 + 2.09137015 * x - 0.16748867,
+            3.0817580 * x3 - 5.87338670 * x2 + 3.75112997 * x - 0.37001483,
+        ),
+    )
+    return x, y
 
 
-class Photopro2Srgb:
-    def __init__(self):
-        self.num_parameters = 0
-        self.k = 0.055
-        self.thre_srgb = 0.04045 / 12.92
-        self.thre_photopro = 1 / 512.0 * 16
-
-        # Transformation matrices
-        a = torch.tensor(
-            [
-                [0.4124564, 0.3575761, 0.1804375],
-                [0.2126729, 0.7151522, 0.0721750],
-                [0.0193339, 0.1191920, 0.9503041],
-            ],
-            dtype=torch.float32,
-        )
-        b = torch.tensor(
-            [
-                [1.3459433, -0.2556075, -0.0511118],
-                [-0.5445989, 1.5081673, 0.0205351],
-                [0.0000000, 0.0000000, 1.2118128],
-            ],
-            dtype=torch.float32,
-        )
-
-        self.M = torch.matmul(b, a)
-        self.M = self.M / self.M.sum(dim=1, keepdim=True)
-        self.M_inv = torch.linalg.inv(self.M)
-
-    def __call__(self, photopro_tensor):
-        with torch.no_grad():  # Disable gradient computation for inference
-            photopro = photopro_tensor.clone()
-            # Apply gamma correction
-            mask = photopro < self.thre_photopro
-            photopro[mask] *= 1.0 / 16
-            photopro[~mask] = photopro[~mask] ** 1.8
-
-            # Separate channels
-            photoprob = photopro[..., 0:1]
-            photoprog = photopro[..., 1:2]
-            photopror = photopro[..., 2:3]
-
-            # Apply the inverse transformation matrix
-            sr = (
-                photopror * self.M_inv[0, 0]
-                + photoprog * self.M_inv[0, 1]
-                + photoprob * self.M_inv[0, 2]
-            )
-            sg = (
-                photopror * self.M_inv[1, 0]
-                + photoprog * self.M_inv[1, 1]
-                + photoprob * self.M_inv[1, 2]
-            )
-            sb = (
-                photopror * self.M_inv[2, 0]
-                + photoprog * self.M_inv[2, 1]
-                + photoprob * self.M_inv[2, 2]
-            )
-            del photopror, photoprog, photoprob
-            srgb = torch.cat((sb, sg, sr), dim=-1)
-            del sr, sg, sb
-            # Apply sRGB transformation
-            srgb = torch.clamp(srgb, 0, 1)
-            mask = srgb > self.thre_srgb
-            srgb[mask] = (1 + self.k) * srgb[mask] ** (1 / 2.4) - self.k
-            srgb[~mask] *= 12.92
-
-            # Clear intermediate tensors
-            del mask
-            torch.cuda.empty_cache()
-
-        return srgb
+def _xy_to_uv(x: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    denominator = -2.0 * x + 12.0 * y + 3.0
+    return 4.0 * x / denominator, 6.0 * y / denominator
 
 
-class PhotoEditor:
-    def __init__(self, sliders="all"):
-        self.edit_funcs = [
-            Srgb2Photopro(),
-            AdjustDehaze(),
-            AdjustClarity(),
-            AdjustContrast(),
-            SigmoidInverse(),
-            AdjustExposure(),
-            AdjustTemp(),
-            AdjustTint(),
-            Sigmoid(),
-            Bgr2Hsv(),
-            AdjustWhites(),
-            AdjustBlacks(),
-            AdjustHighlights(),
-            AdjustShadows(),
-            AdjustVibrance(),
-            AdjustSaturation(),
-            Hsv2Bgr(),
-            Photopro2Srgb(),
-        ]
-        self.sliders = sliders
-        self.num_parameters = 0
+def _uv_to_xy(u: torch.Tensor, v: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    denominator = 2.0 * u - 8.0 * v + 4.0
+    return 3.0 * u / denominator, 2.0 * v / denominator
+
+
+def _locus_uv(temperature: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    # The RL-facing relative temperature range maps to about 4276..13542 K,
+    # entirely inside the Kim approximation's calibrated interval.
+    return _xy_to_uv(*_kim_xy(temperature))
+
+
+def _temp_tint_xy(
+    temperature: torch.Tensor, tint: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
+    u, v = _locus_uv(temperature)
+    mired = 1e6 / temperature
+    u0, v0 = _locus_uv(1e6 / (mired + 1.0))
+    u1, v1 = _locus_uv(1e6 / (mired - 1.0).clamp_min(1.0))
+    du = u1 - u0
+    dv = v1 - v0
+    length = torch.sqrt(du * du + dv * dv).clamp_min(1e-12)
+    nx = -dv / length
+    ny = du / length
+    flip = ny < 0.0
+    nx = torch.where(flip, -nx, nx)
+    ny = torch.where(flip, -ny, ny)
+    duv = tint / 3000.0
+    return _uv_to_xy(u + nx * duv, v + ny * duv)
+
+
+class PhotoEditor(nn.Module):
+    """Apply a fixed-order, ten-control global development pipeline.
+
+    Parameters are supplied only for selected sliders, but their tensor order is
+    always the canonical :data:`SLIDER_ORDER` filtered to those selections. The
+    caller's list order does not alter the action contract, matching the legacy
+    environment behavior.
+    """
+
+    slider_order = SLIDER_ORDER
+
+    def __init__(self, sliders: str | Sequence[str] = "all") -> None:
+        super().__init__()
         if sliders == "all":
-            for edit_func in self.edit_funcs:
-                self.num_parameters += edit_func.num_parameters
+            active = SLIDER_ORDER
         else:
-            for edit_func in self.edit_funcs:
-                if edit_func.num_parameters == 0:
-                    self.num_parameters += edit_func.num_parameters
-                elif edit_func.slider_names[0] in sliders:
-                    self.num_parameters += edit_func.num_parameters
+            requested = tuple(sliders)
+            unknown = sorted(set(requested) - set(SLIDER_ORDER))
+            if unknown:
+                raise ValueError(
+                    f"Unsupported photo-editing sliders: {unknown}. "
+                    f"Available sliders: {list(SLIDER_ORDER)}"
+                )
+            if len(set(requested)) != len(requested):
+                raise ValueError("Photo-editing slider names must be unique")
+            active = tuple(name for name in SLIDER_ORDER if name in requested)
 
-    def __call__(self, images, parameters):
-        editted_images = images.clone()
-        num_parameters = 0
-        assert images.shape[-1] == 3  # make sure that the image shape is (B,H,W,C)
-        assert images.dim() == 4  # make sure that the image is batched
-        for edit_func in self.edit_funcs:
-            if self.sliders == "all":
-                if edit_func.num_parameters == 0:
-                    editted_images = edit_func(editted_images)
-                else:
-                    start = num_parameters
-                    end = num_parameters + edit_func.num_parameters
-                    editted_images = edit_func(editted_images, parameters[:, start:end])
-                num_parameters += edit_func.num_parameters
+        self.sliders = active
+        self.num_parameters = len(active)
+        self._active_positions = tuple(SLIDER_ORDER.index(name) for name in active)
+        self._has_wb = any(name in active for name in ("temp", "tint"))
+        self._has_local_tone = any(name in active for name in ("highlights", "shadows"))
+        self._has_tone_map = any(
+            name in active for name in ("contrast", "whites", "blacks")
+        )
+        self._has_colour = any(name in active for name in ("vibrance", "saturation"))
 
-            else:
-                if edit_func.num_parameters == 0:
-                    editted_images = edit_func(editted_images)
-                else:
-                    if edit_func.slider_names[0] in self.sliders:
-                        start = num_parameters
-                        end = num_parameters + edit_func.num_parameters
-                        editted_images = edit_func(
-                            editted_images, parameters[:, start:end]
-                        )
-                        num_parameters += edit_func.num_parameters
+        srgb_to_xyz = _matrix(_SRGB_TO_XYZ)
+        working_to_xyz = _matrix(_REC2020_TO_XYZ)
+        xyz_to_working = torch.linalg.inv(working_to_xyz)
+        srgb_to_working = xyz_to_working @ srgb_to_xyz
+        working_to_srgb = torch.linalg.inv(srgb_to_working)
+        bradford = _matrix(_BRADFORD)
 
-        editted_images = editted_images.type(torch.float32)
+        self.register_buffer("_srgb_to_working", srgb_to_working)
+        self.register_buffer("_working_to_srgb", working_to_srgb)
+        self.register_buffer("_working_to_xyz", working_to_xyz)
+        self.register_buffer("_xyz_to_working", xyz_to_working)
+        self.register_buffer("_bradford", bradford)
+        self.register_buffer("_bradford_inverse", torch.linalg.inv(bradford))
+        self.register_buffer("_working_luma", torch.tensor(_REC2020_LUMA))
+        self.register_buffer("_srgb_luma", torch.tensor(_SRGB_LUMA))
 
-        return editted_images
+        to_lms = _matrix(_XYZ_TO_LMS) @ working_to_xyz
+        to_lab = _matrix(_LMS_TO_OKLAB)
+        self.register_buffer("_ok_to_lms", to_lms)
+        self.register_buffer("_ok_from_lms", torch.linalg.inv(to_lms))
+        self.register_buffer("_ok_to_lab", to_lab)
+        self.register_buffer("_ok_from_lab", torch.linalg.inv(to_lab))
+
+        # LightCraft/Lightroom-style vibrance protects orange skin hues.
+        skin_srgb = torch.tensor([1.0, 25.0 / 60.0, 0.0])
+        skin_linear = _srgb_to_linear(skin_srgb)
+        skin_working = _apply_matrix(skin_linear, srgb_to_working)
+        skin_lab = self._working_to_oklab(skin_working)
+        self.register_buffer("_skin_hue", torch.atan2(skin_lab[2], skin_lab[1]))
+
+        shot_temperature = torch.tensor([6500.0])
+        shot_tint = torch.tensor([0.0])
+        shot = self._absolute_wb_matrix(shot_temperature, shot_tint)[0]
+        self.register_buffer("_shot_wb_inverse", torch.linalg.inv(shot))
+
+    def _absolute_wb_matrix(
+        self, temperature: torch.Tensor, tint: torch.Tensor
+    ) -> torch.Tensor:
+        x, y = _temp_tint_xy(temperature, tint)
+        source_xyz = torch.stack((x / y, torch.ones_like(x), (1.0 - x - y) / y), dim=-1)
+        d65_xy = source_xyz.new_tensor((0.3127, 0.3290))
+        destination_xyz = torch.stack(
+            (
+                d65_xy[0] / d65_xy[1],
+                d65_xy.new_tensor(1.0),
+                (1.0 - d65_xy.sum()) / d65_xy[1],
+            )
+        )
+        source_cone = torch.matmul(source_xyz, self._bradford.transpose(0, 1))
+        destination_cone = torch.matmul(self._bradford, destination_xyz)
+        diagonal = torch.diag_embed(destination_cone / source_cone)
+        adaptation = self._bradford_inverse @ diagonal @ self._bradford
+        return self._xyz_to_working @ adaptation @ self._working_to_xyz
+
+    def _relative_wb_matrix(
+        self, temperature_action: torch.Tensor, tint_action: torch.Tensor
+    ) -> torch.Tensor:
+        relative_temperature = temperature_action * 100.0
+        kelvin = 1e6 / (1e6 / 6500.0 - relative_temperature * 0.8)
+        matrix = self._absolute_wb_matrix(kelvin, tint_action * 100.0)
+        matrix = matrix @ self._shot_wb_inverse
+
+        # White balance should not change overall exposure.
+        neutral = matrix.sum(dim=-1)
+        luminance = (neutral * self._working_luma).sum(dim=-1).clamp_min(1e-8)
+        return matrix / luminance[:, None, None]
+
+    def _working_to_oklab(self, image: torch.Tensor) -> torch.Tensor:
+        lms = _apply_matrix(image, self._ok_to_lms)
+        lms_root = torch.sign(lms) * lms.abs().pow(1.0 / 3.0)
+        return _apply_matrix(lms_root, self._ok_to_lab)
+
+    def _oklab_to_working(self, image: torch.Tensor) -> torch.Tensor:
+        lms_root = _apply_matrix(image, self._ok_from_lab)
+        return _apply_matrix(lms_root * lms_root * lms_root, self._ok_from_lms)
+
+    def _unpack_actions(self, parameters: torch.Tensor) -> torch.Tensor:
+        batch = parameters.shape[0]
+        actions = parameters.new_zeros((batch, len(SLIDER_ORDER)))
+        if self._active_positions:
+            actions[:, self._active_positions] = parameters
+        return actions.clamp(-1.0, 1.0)
+
+    def _local_tone(
+        self,
+        image: torch.Tensor,
+        pre_exposure_log_luminance: torch.Tensor,
+        exposure_ev: torch.Tensor,
+        highlights: torch.Tensor,
+        shadows: torch.Tensor,
+    ) -> torch.Tensor:
+        long_edge = max(image.shape[1], image.shape[2])
+        radius = max(1, round(0.015 * long_edge))
+        base = _guided_base(pre_exposure_log_luminance, radius) + exposure_ev
+        shadow_weight = 1.0 - _smoothstep(-4.8, 0.3, base)
+        highlight_weight = _smoothstep(-1.0, 2.8, base)
+        delta_ev = (
+            shadows * 1.7 * shadow_weight * shadow_weight.sqrt()
+            + highlights * 1.7 * highlight_weight
+        )
+        return image * torch.exp2(delta_ev).unsqueeze(-1)
+
+    def _tone_map(
+        self,
+        image: torch.Tensor,
+        contrast: torch.Tensor,
+        whites: torch.Tensor,
+        blacks: torch.Tensor,
+    ) -> torch.Tensor:
+        luminance = _luminance(image, self._working_luma).clamp_min(0.0)
+        perceptual = luminance.clamp_min(1e-10).pow(1.0 / 2.2)
+        middle = _GREY ** (1.0 / 2.2)
+
+        below_white = perceptual <= 1.0
+        adjusted = perceptual + contrast * 0.35 * (perceptual - middle) * (
+            1.0 - (2.0 * perceptual - 1.0).square()
+        )
+        upper_weight = _smoothstep(0.45, 1.0, adjusted)
+        adjusted = adjusted + whites * 0.12 * upper_weight * (1.0 - adjusted * 0.5)
+        lower_weight = 1.0 - _smoothstep(0.0, 0.45, adjusted)
+        adjusted = adjusted + blacks * 0.07 * lower_weight * (adjusted * 2.0).clamp_max(
+            1.0
+        )
+        above_adjusted = perceptual + whites * 0.12 * 0.5
+        adjusted = torch.where(below_white, adjusted, above_adjusted)
+
+        output_luminance = adjusted.clamp_min(0.0).pow(2.2)
+        shoulder_distance = (output_luminance - 0.95).clamp(0.0, 0.1)
+        shoulder = 0.95 + shoulder_distance - shoulder_distance.square() / 0.2
+        output_luminance = torch.where(
+            output_luminance > 0.95, shoulder, output_luminance
+        ).clamp(0.0, 1.0)
+        scale = output_luminance / luminance.clamp_min(1e-9)
+        mapped = image * scale.unsqueeze(-1)
+        mapped = torch.where(
+            (luminance > 1e-9).unsqueeze(-1), mapped, torch.zeros_like(mapped)
+        )
+
+        # Exactly neutral controls must be an identity for already-rendered JPEGs.
+        active = ((contrast.abs() + whites.abs() + blacks.abs()) > 1e-8).unsqueeze(-1)
+        return torch.where(active, mapped, image)
+
+    def _colour(
+        self, image: torch.Tensor, vibrance: torch.Tensor, saturation: torch.Tensor
+    ) -> torch.Tensor:
+        lab = self._working_to_oklab(image)
+        a = lab[..., 1]
+        b = lab[..., 2]
+        chroma = torch.sqrt(a * a + b * b)
+
+        low_chroma = 1.0 - (chroma / 0.22).clamp(0.0, 1.0)
+        hue = torch.atan2(b, a)
+        hue_delta = (
+            torch.remainder(hue - self._skin_hue + torch.pi, 2.0 * torch.pi) - torch.pi
+        )
+        skin_protection = torch.where(
+            vibrance > 0.0,
+            1.0 - 0.6 * torch.exp(-((hue_delta / 0.35).square())),
+            torch.ones_like(hue),
+        )
+        vibrance_scale = (
+            1.0 + vibrance * low_chroma.square() * skin_protection * 1.2
+        ).clamp_min(0.0)
+        saturation_scale = (1.0 + saturation).clamp_min(0.0)
+        scale = vibrance_scale * saturation_scale
+
+        output_lab = torch.stack((lab[..., 0], a * scale, b * scale), dim=-1)
+        return self._oklab_to_working(output_lab)
+
+    def _gamut_map_srgb(self, image: torch.Tensor) -> torch.Tensor:
+        luminance = _luminance(image, self._srgb_luma).clamp(0.0, 1.0)
+        y = luminance.unsqueeze(-1)
+        low_scale = y / (y - image).clamp_min(1e-9)
+        high_scale = (1.0 - y) / (image - y).clamp_min(1e-9)
+        candidates = torch.where(
+            image < 0.0,
+            low_scale,
+            torch.where(image > 1.0, high_scale, torch.ones_like(image)),
+        )
+        chroma_scale = candidates.amin(dim=-1, keepdim=True).clamp(0.0, 1.0)
+        return y + (image - y) * chroma_scale
+
+    @torch.no_grad()
+    def forward(self, images: torch.Tensor, parameters: torch.Tensor) -> torch.Tensor:
+        if images.ndim != 4 or images.shape[-1] != 3:
+            raise ValueError("images must have shape (B, H, W, 3)")
+        if not images.is_floating_point():
+            raise TypeError(
+                "images must be a floating-point tensor in the [0, 1] range"
+            )
+        if parameters.ndim != 2:
+            raise ValueError("parameters must have shape (B, num_parameters)")
+        if parameters.shape != (images.shape[0], self.num_parameters):
+            raise ValueError(
+                "parameters must have shape "
+                f"({images.shape[0]}, {self.num_parameters}), got {tuple(parameters.shape)}"
+            )
+        if parameters.device != images.device:
+            raise ValueError("images and parameters must be on the same device")
+
+        # Buffers follow the first input automatically. Subsequent calls on the
+        # same device do not allocate or transfer any constants.
+        if self._srgb_to_working.device != images.device:
+            self.to(device=images.device)
+
+        image = images.to(dtype=torch.float32).clamp(0.0, 1.0)
+        actions = self._unpack_actions(parameters.to(dtype=torch.float32))
+        values = {
+            name: actions[:, i, None, None] for i, name in enumerate(SLIDER_ORDER)
+        }
+
+        image = _apply_matrix(_srgb_to_linear(image), self._srgb_to_working)
+
+        if self._has_wb:
+            wb = self._relative_wb_matrix(
+                values["temp"][:, 0, 0], values["tint"][:, 0, 0]
+            )
+            image = _apply_matrix(image, wb).clamp_min(0.0)
+
+        pre_exposure_log_luminance = None
+        if self._has_local_tone:
+            pre_exposure_log_luminance = _log_luminance(image, self._working_luma)
+
+        exposure_ev = values["exposure"] * 5.0
+        image = image * torch.exp2(exposure_ev).unsqueeze(-1)
+
+        if self._has_local_tone and pre_exposure_log_luminance is not None:
+            image = self._local_tone(
+                image,
+                pre_exposure_log_luminance,
+                exposure_ev,
+                values["highlights"],
+                values["shadows"],
+            )
+
+        if self._has_tone_map:
+            image = self._tone_map(
+                image, values["contrast"], values["whites"], values["blacks"]
+            )
+
+        if self._has_colour:
+            image = self._colour(image, values["vibrance"], values["saturation"])
+
+        image = _apply_matrix(image, self._working_to_srgb)
+        image = self._gamut_map_srgb(image)
+        image = _linear_to_srgb(image)
+        return torch.nan_to_num(image, nan=0.0, posinf=1.0, neginf=0.0).clamp(0.0, 1.0)

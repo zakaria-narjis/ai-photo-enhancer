@@ -42,10 +42,15 @@ class SAC:
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
 
-        self.q_optimizer = optim.Adam(
-            list(self.qf1.parameters()) + list(self.qf2.parameters()),
-            lr=args.q_lr,
-        )
+        # Both critics intentionally share the image backbone. Deduplicate those
+        # shared parameters so Adam updates each tensor once per critic step.
+        q_parameters = []
+        seen_parameters = set()
+        for parameter in list(self.qf1.parameters()) + list(self.qf2.parameters()):
+            if id(parameter) not in seen_parameters:
+                seen_parameters.add(id(parameter))
+                q_parameters.append(parameter)
+        self.q_optimizer = optim.Adam(q_parameters, lr=args.q_lr)
         self.actor_optimizer = optim.Adam(
             list(self.actor.parameters()), lr=args.policy_lr
         )

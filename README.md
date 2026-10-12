@@ -66,14 +66,14 @@ Input Image (B, H, W, 3)
         │
         ▼
 ┌──────────────────────┐
-│    Photo Editor      │  Differentiable 18-step pipeline
+│    Photo Editor      │  Batched, GPU-native 10-control pipeline
 └──────────────────────┘
         │
         ▼
 Enhanced Image (B, H, W, 3)
 ```
 
-- **N** = number of enabled sliders (default: 4 in config; up to 10)
+- **N** = number of enabled sliders (default: all 10 core controls)
 - Actor and critics share the same backbone instance
 - All linear layers use Xavier initialization
 
@@ -81,28 +81,17 @@ Enhanced Image (B, H, W, 3)
 
 ## Photo Editing Pipeline
 
-The `PhotoEditor` class (`src/envs/new_edit_photo.py`) applies edits in this fixed order. Steps with no slider are always applied; steps with a slider are only applied if that slider is in `sliders_to_use`.
+The `PhotoEditor` class (`src/envs/new_edit_photo.py`) accepts display-encoded sRGB tensors in `(B, H, W, 3)` layout and normalized actions in `[-1, 1]`. It preserves the previous 10-slider action indexing:
 
-| #  | Class              | Slider        | Notes                                                         |
-| -- | ------------------ | ------------- | ------------------------------------------------------------- |
-| 1  | `Srgb2Photopro`    | —             | sRGB → ProPhoto color space (linearize + matrix transform + gamma) |
-| 2  | `AdjustDehaze`     | `dehaze`      | Currently a stub (not implemented)                            |
-| 3  | `AdjustClarity`    | `clarity`     | Bilateral filter unsharp mask                                 |
-| 4  | `AdjustContrast`   | `contrast`    | Mean-subtraction scaling                                      |
-| 5  | `SigmoidInverse`   | —             | Logit transform (opens dynamic range for exposure editing)    |
-| 6  | `AdjustExposure`   | `exposure`    | Additive: `image + param * 5`                                 |
-| 7  | `AdjustTemp`       | `temp`        | Color temperature (warm/cool shift on R/B channels)           |
-| 8  | `AdjustTint`       | `tint`        | Green/magenta tint                                            |
-| 9  | `Sigmoid`          | —             | Restore [0, 1] range                                          |
-| 10 | `Bgr2Hsv`          | —             | Convert to HSV color space                                    |
-| 11 | `AdjustWhites`     | `whites`      | V-channel highlight scaling                                   |
-| 12 | `AdjustBlacks`     | `blacks`      | V-channel shadow lifting                                      |
-| 13 | `AdjustHighlights` | `highlights`  | Sigmoid-masked highlight compression                          |
-| 14 | `AdjustShadows`    | `shadows`     | Sigmoid-masked shadow boosting                                |
-| 15 | `AdjustVibrance`   | `vibrance`    | S-channel: boost under-saturated pixels                       |
-| 16 | `AdjustSaturation` | `saturation`  | S-channel global scaling                                      |
-| 17 | `Hsv2Bgr`          | —             | Convert back to BGR                                           |
-| 18 | `Photopro2Srgb`    | —             | ProPhoto → sRGB (inverse matrix + gamma correction)           |
+`contrast, exposure, temp, tint, whites, blacks, highlights, shadows, vibrance, saturation`
+
+The image is decoded to scene-linear Rec.2020, edited, gamut-mapped, and encoded back to sRGB. Exposure is a true light gain (±5 EV); temperature/tint use correlated color temperature plus Bradford adaptation; Highlights/Shadows use one fast edge-aware log-luminance pass; Contrast/Whites/Blacks use a luminance-preserving filmic tone map; and Vibrance/Saturation operate in perceptual OkLab with skin-tone protection. The implementation stays batched and on the input tensor's device—there are no per-image NumPy/OpenCV round trips.
+
+Clarity and Dehaze are intentionally excluded. They are useful creative effects but require additional spatial filters, while the selected ten controls cover the main global correction workflow and keep RL rollouts fast. For rendered JPEG/PNG inputs, camera exposure metadata cannot reconstruct RAW sensor data or camera profiles. EXIF orientation and embedded ICC profiles should instead be resolved once while loading; the experiment notebook demonstrates this without adding work to each environment step.
+
+Use `notebooks/photo_pipeline_experiment.ipynb` to load a sample, edit all ten actions, inspect individual slider sweeps, and benchmark preview/training batch latency.
+
+> Existing actor checkpoints must be retrained. Their output dimensions and action indices still load, but their learned action values target the legacy image math and are not calibrated for this pipeline.
 
 ---
 
@@ -151,7 +140,6 @@ pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorc
 
 # Install remaining dependencies
 pip install -r requirements.txt
-pip install torchmetrics matplotlib  # not yet in requirements.txt but needed for test.py
 ```
 
 > **Note:** A GPU with at least 8 GB VRAM is recommended for training. CPU training is supported but slow.
@@ -248,8 +236,10 @@ Opens a browser UI with:
 
 ```python
 MODEL_PATH = "experiments/runs/<your_run_name>"
-SLIDERS_ORD = ["contrast", "exposure", "temp", ...]  # must match training config order
+SLIDERS_ORD = ["contrast", "exposure", "temp", ...]  # canonical PhotoEditor order
 ```
+
+The included checkpoints target the legacy editor math. Train a new checkpoint before judging automatic enhancement with the new pipeline; the manual sliders work immediately.
 
 ---
 
@@ -296,7 +286,7 @@ experiments/runs/<exp_name>__<tag>__<YYYY-MM-DD_HH-MM-SS>/
 | `test_batch_size`        | `500`                                     | Batch size for test-set evaluation.                                                                                           |
 | `threshold_psnr`         | `-25`                                     | PSNR threshold (shifted scale) to mark an episode done. Actual PSNR ≈ `threshold + 50`.                                     |
 | `psnr_reward`            | `True`                                    | Use PSNR as the reward signal (vs. raw RMSE).                                                                                 |
-| `sliders_to_use`         | `["temp","tint","vibrance","saturation"]` | List of active editing sliders. Available: `temp`, `tint`, `exposure`, `contrast`, `highlights`, `shadows`, `whites`, `blacks`, `vibrance`, `saturation`. |
+| `sliders_to_use`         | All 10 core sliders                       | List of active editing sliders. Available: `temp`, `tint`, `exposure`, `contrast`, `highlights`, `shadows`, `whites`, `blacks`, `vibrance`, `saturation`. |
 | `features_size`          | `512`                                     | Backbone output dimension (ResNet18 = 512).                                                                                   |
 | `discretize`             | `True`                                    | Round continuous actions to a discrete grid.                                                                                  |
 | `discretize_step`        | `0.01`                                    | Grid resolution for action discretization.                                                                                    |
@@ -354,7 +344,7 @@ SLIDERS_ORD = [
 ]
 ```
 
-> **Important:** `SLIDERS_ORD` in `demo.py` defines the order parameters are passed to `PhotoEditor`. This **must** match the `sliders_to_use` order used during training.
+> **Important:** `PhotoEditor` always uses the canonical order shown above, filtered to the enabled names. The order of names in `sliders_to_use` does not change action indexing. `SLIDERS_ORD` in `demo.py` must remain in that canonical order.
 
 ---
 
@@ -391,7 +381,7 @@ ai-photo-enhancer-1/
 │   │   └── utils.py                 # Model save/load utilities
 │   └── envs/
 │       ├── photo_env.py             # Gymnasium-compatible photo enhancement environment
-│       ├── new_edit_photo.py        # Differentiable 18-step photo editing pipeline
+│       ├── new_edit_photo.py        # Fast scene-linear 10-control editing pipeline
 │       ├── image_dataset.py         # FiveKDataset with optional semantic feature loading
 │       ├── env_dataloader.py        # PyTorch DataLoader factory
 │       └── dehaze/                  # Dark channel prior dehaze (not yet integrated)

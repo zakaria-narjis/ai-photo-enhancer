@@ -2,7 +2,11 @@ import argparse
 import logging
 import os
 import random
+import sys
 from pathlib import Path
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,10 +15,10 @@ import yaml
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from tqdm import tqdm
 
-from envs.env_dataloader import create_dataloaders
-from envs.new_edit_photo import PhotoEditor
-from envs.photo_env import PhotoEnhancementEnvTest
-from sac.sac_inference import InferenceAgent
+from src.envs.env_dataloader import create_dataloaders
+from src.envs.new_edit_photo import PhotoEditor
+from src.envs.photo_env import PhotoEnhancementEnvTest
+from src.sac.sac_inference import InferenceAgent
 
 
 class Config:
